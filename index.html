@@ -17,6 +17,8 @@
       --accent: #9CB4A6; 
       --accent2: #D48C70; 
       --radius: 12px;
+      /* Couleur de la carte en dur pour éviter le bug de transparence */
+      --card-bg: #FDFBF7; 
     }
     * { box-sizing: border-box; }
     body {
@@ -71,13 +73,12 @@
       background: rgba(255, 255, 255, 0.85);
       backdrop-filter: blur(8px);
       border: 1px solid rgba(255,255,255,0.4);
-      border-radius: 4px; /* Plus carré comme une feuille */
+      border-radius: 4px;
       padding: 1.5rem 2rem;
       margin-bottom: 2rem;
       box-shadow: 0 10px 30px rgba(0,0,0,0.1), inset 0 0 0 1px rgba(255,255,255,0.5);
       position: relative;
     }
-    /* Petite ombre en coin pour faire "feuille cornée" */
     .card-paper::after {
       content: ''; position: absolute; bottom: 0; right: 0; width: 40px; height: 40px;
       background: linear-gradient(135deg, transparent 50%, rgba(0,0,0,0.05) 50%);
@@ -96,72 +97,97 @@
     }
     input:focus, select:focus { border-color: var(--accent); background: var(--panel); }
     
-    /* GRILLE ET CARTES ÉTUDIANTES S2 (100% CODE) */
+    /* GRILLE ÉTUDIANTE S2 */
     .contestants-grid { 
-        display: grid; gap: 2rem; 
-        grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); 
+        display: grid; gap: 2.5rem; 
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); 
         align-items: center; justify-items: center;
         padding: 1rem 0;
     }
     
+    /* CARTES ÉTUDIANTES S2 : CRÉÉES EN CSS POUR ÉVITER LE BUG DE TRANSPARENCE */
     .contestant-card {
       position: relative;
       width: 100%;
-      max-width: 280px;
-      aspect-ratio: 16 / 9; /* S'adapte au badge Canva */
-      /* Remplacer 1000066195.png par le nom de ton badge vierge si besoin */
-      background-image: url('1000066195.png'); 
-      background-size: 100% 100%;
-      background-repeat: no-repeat;
-      background-color: transparent;
-      border: none;
+      max-width: 320px;
+      height: 180px;
+      background-color: var(--card-bg);
+      border-radius: 12px;
       cursor: pointer;
-      transition: transform 0.3s ease, filter 0.3s ease;
-      filter: drop-shadow(0px 8px 12px rgba(0,0,0,0.2)); /* Ombre sur le liège */
-      /* Effet d'épinglage aléatoire */
+      /* Rotation aléatoire et ombre douce sur le liège */
       transform: rotate(calc(-2deg + 4deg * var(--rand, 0.5))); 
+      transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.2s ease, filter 0.2s ease;
+      box-shadow: 0 8px 15px rgba(0,0,0,0.15), inset 0 0 0 1px rgba(255,255,255,0.8);
     }
     
+    /* La petite "encoche" perforée en haut de la carte */
+    .contestant-card::before {
+      content: '';
+      position: absolute;
+      top: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 40px;
+      height: 8px;
+      background-color: rgba(0,0,0,0.1);
+      border-radius: 10px;
+      box-shadow: inset 0 1px 3px rgba(0,0,0,0.2);
+    }
+
+    /* Animation au survol */
     .contestant-card:hover { 
-        transform: scale(1.08) rotate(0deg); 
-        filter: drop-shadow(0px 15px 25px rgba(0,0,0,0.3)); 
+        transform: scale(1.05) rotate(0deg) !important; 
+        box-shadow: 0 15px 30px rgba(0,0,0,0.2), inset 0 0 0 1px rgba(255,255,255,0.9);
         z-index: 10;
     }
     
-    .contestant-card.eliminated-card { filter: grayscale(100%) opacity(0.6) drop-shadow(0px 4px 6px rgba(0,0,0,0.1)); }
+    .contestant-card.eliminated-card { filter: grayscale(100%) opacity(0.7); box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
     
-    /* PLACEMENT DES DONNÉES SUR LA CARTE */
+    /* PLACEMENT DES DONNÉES SUR LA CARTE CSS */
     .c-pic {
-        position: absolute; top: 16%; left: 7%; width: 28%; height: 68%;
-        object-fit: cover; border-radius: 6px; box-shadow: inset 0 0 5px rgba(0,0,0,0.1);
+        position: absolute; top: 15%; left: 5%; width: 30%; height: 70%;
+        object-fit: cover; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        border: 2px solid #FFF;
     }
-    .c-rank { position: absolute; top: 32%; left: 42%; font-family: 'Playfair Display'; font-size: 1.2rem; color: #555; }
+    .c-rank { 
+        position: absolute; top: 20%; left: 40%; 
+        font-family: 'Playfair Display'; font-size: 1.1rem; color: var(--muted); 
+    }
     .c-name { 
-        position: absolute; top: 48%; left: 42%; font-family: 'Playfair Display'; font-size: 1.4rem; 
-        font-weight: 600; color: #111; text-transform: uppercase;
-        border-bottom: 1px solid #999; padding-bottom: 2px; width: 48%;
+        position: absolute; top: 35%; left: 40%; 
+        font-family: 'Playfair Display'; font-size: 1.5rem; font-weight: 600; color: var(--text); 
+        text-transform: uppercase;
+        border-bottom: 2px solid var(--line); padding-bottom: 2px; width: 50%;
         white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
-    .c-score { position: absolute; bottom: 18%; left: 42%; font-size: 0.8rem; color: #444; font-weight: 600;}
+    .c-score { 
+        position: absolute; bottom: 25%; left: 40%; 
+        font-size: 0.85rem; color: var(--text); font-weight: 600;
+    }
+    
+    /* Nouveaux badges de statut pour la carte */
     .c-status { 
-        position: absolute; bottom: 12%; right: 8%; font-size: 1rem; font-weight: 600; 
-        text-transform: uppercase; letter-spacing: 1px; font-family: 'Playfair Display';
+        position: absolute; bottom: 10%; right: 5%; 
+        font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; 
+        padding: 4px 10px; border-radius: 20px; color: white;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     }
 
-    /* L'ÉLITE : TOP 3 */
-    .top1-card { transform: scale(1.15) !important; filter: drop-shadow(0 0 20px rgba(226, 192, 68, 0.6)) !important; z-index: 5;}
+    /* L'ÉLITE : TOP 3 (Avec animations réparées) */
+    .top1-card { filter: drop-shadow(0 0 15px rgba(226, 192, 68, 0.4)); z-index: 5; border: 2px solid #D4AF37; }
     .top1-card .c-rank { color: #D4AF37; font-weight: bold; }
-    .top1-card::before { content: '👑'; position: absolute; top: -15px; left: -15px; font-size: 2rem; transform: rotate(-15deg); }
+    .top1-card::after { content: '👑'; position: absolute; top: -15px; left: -10px; font-size: 2rem; transform: rotate(-15deg); filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2)); }
     
-    .top2-card { transform: scale(1.05) !important; filter: drop-shadow(0 0 15px rgba(192, 192, 192, 0.5)) !important; z-index: 4;}
-    .top3-card { transform: scale(1.05) !important; filter: drop-shadow(0 0 15px rgba(205, 127, 50, 0.5)) !important; z-index: 3;}
-    
-    /* Couleurs des textes de statut sur la carte */
-    .c-status.safe { color: var(--accent); }
-    .c-status.nominee { color: var(--accent2); }
-    .c-status.saved_judges, .c-status.saved_public { color: #7B9EB8; }
-    .c-status.eliminated { color: #999; }
-    .c-status.winner { color: #D4AF37; }
+    .top2-card { filter: drop-shadow(0 0 12px rgba(192, 192, 192, 0.5)); z-index: 4; border: 1px solid #c0c0c0;}
+    .top3-card { filter: drop-shadow(0 0 12px rgba(205, 127, 50, 0.4)); z-index: 3; border: 1px solid #cd7f32;}
+
+    /* Couleurs de fond des badges sur la carte */
+    .c-status.safe { background-color: var(--accent); }
+    .c-status.nominee { background-color: var(--accent2); }
+    .c-status.saved_judges, .c-status.saved_public { background-color: #7B9EB8; }
+    .c-status.eliminated { background-color: #A9B4BC; }
+    .c-status.winner { background-color: #D4AF37; }
+    .c-status.tbd { background-color: var(--line); color: var(--text); }
 
     /* PILULES CLASSIQUES (Pour la page profil) */
     .pill { display: inline-block; margin-top: .5rem; padding: .3rem .8rem; border-radius: 999px; font-size: .75rem; font-weight: 600; border: none; letter-spacing: 0.05em; text-transform: uppercase; }
@@ -196,6 +222,10 @@
     .highlight-item h4 { margin: 0 0 .5rem; font-size: .8rem; color: var(--accent2); text-transform: uppercase; letter-spacing: .08em; font-family: 'Poppins'; }
     .highlight-item p { margin: 0; font-size: 1.1rem; font-weight: 600; color: var(--text); font-family: 'Playfair Display'; }
     .highlight-item .desc { display: block; font-size: .85rem; color: var(--muted); font-weight: normal; margin-top: .4rem; line-height: 1.4; font-family: 'Poppins'; }
+
+    .error-box { grid-column: 1/-1; padding: 2rem; background: #FDE8E8; border: 2px solid #F98080; border-radius: 12px; color: #9B1C1C; margin-top: 1rem;}
+    .error-box h3 { margin-top: 0; color: #9B1C1C; font-family: 'Playfair Display'; font-size: 1.5rem;}
+    .error-box p { font-weight: 600; }
 
     @media (max-width: 680px) {
       th, td { font-size: .8rem; padding: .5rem .4rem; }
@@ -559,7 +589,6 @@ function renderContestants() {
   const officialByRound = getOfficialRankingByRound();
   const currentRanks = officialByRound[state.latestRound] || {};
   
-  // Transformation du bloc en document "papier"
   root.innerHTML = `
     <div class="card-paper">
       <h2>${t('nav_contestants')}</h2>
@@ -597,13 +626,11 @@ function renderContestants() {
           const rank = currentRanks[c.id];
           const score = getPerformanceScoreByRound()[state.latestRound]?.[c.id];
           
-          // Logique pour mettre en avant le Top 3
           let eliteClass = '';
           if (rank === 1) eliteClass = 'top1-card';
           else if (rank === 2) eliteClass = 'top2-card';
           else if (rank === 3) eliteClass = 'top3-card';
           
-          // Rotation aléatoire pour chaque carte
           const randomRot = Math.random();
 
           return `<div class="contestant-card ${status === 'eliminated' ? 'eliminated-card' : ''} ${eliteClass}" style="--rand: ${randomRot};" onclick="location.hash='#profile/${c.id}'">
