@@ -753,7 +753,11 @@ function renderRankings() {
  </div>
  <div class="card" style="background: rgba(255,255,255,0.95);">
  <h3>${t('global_chart')}</h3>
- <canvas id="rankingChart" height="120"></canvas>
+ <div class="table-wrap">
+ <div style="min-width: 600px; height: 300px;">
+ <canvas id="rankingChart"></canvas>
+ </div>
+ </div>
  </div>`;
 
  document.getElementById('rankingViewSelect').addEventListener('change', (e) => { state.rankingView = e.target.value; renderRankings(); });
@@ -784,6 +788,8 @@ function renderRankings() {
  })
  },
  options: {
+ responsive: true,
+ maintainAspectRatio: false,
  interaction: { mode: 'dataset', intersect: true },
  onHover: (e, elements, chart) => {
  if (elements && elements.length) {
@@ -883,7 +889,11 @@ function renderProfile(contestantId) {
  </div>
  <div class="card" style="background: rgba(255,255,255,0.95);">
  <h3>${t('indiv_chart')}</h3>
- <canvas id="profileChart" height="100"></canvas>
+ <div class="table-wrap">
+ <div style="min-width: 500px; height: 250px;">
+ <canvas id="profileChart"></canvas>
+ </div>
+ </div>
  </div>`;
 
  if (profileChart) profileChart.destroy();
@@ -893,7 +903,12 @@ function renderProfile(contestantId) {
  labels: ROUND_ORDER.map(r => getRoundLabel(r)),
  datasets: [{ label: getContestantName(c.id), data: ROUND_ORDER.map(r => official[r]?.[c.id] ?? null), borderColor: '#9CB4A6', backgroundColor: 'rgba(156, 180, 166, 0.2)', borderWidth: 3, tension: .25, spanGaps: true }]
  },
- options: { plugins: { legend: { labels: { color: '#2C3539' } } }, scales: { x: { ticks: { color: '#7A8B99' } }, y: { reverse: true, min: 1, max: Math.max(22, state.data.contestants.length), ticks: { color: '#7A8B99', stepSize: 1 } } } }
+ options: {
+ responsive: true,
+ maintainAspectRatio: false,
+ plugins: { legend: { labels: { color: '#2C3539' } } },
+ scales: { x: { ticks: { color: '#7A8B99' } }, y: { reverse: true, min: 1, max: Math.max(22, state.data.contestants.length), ticks: { color: '#7A8B99', stepSize: 1 } } }
+ }
  });
 }
 
