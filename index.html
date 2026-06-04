@@ -173,7 +173,7 @@
         box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     }
 
-    /* L'ÉLITE : TOP 3 (Avec animations réparées) */
+    /* L'ÉLITE : TOP 3 */
     .top1-card { filter: drop-shadow(0 0 15px rgba(226, 192, 68, 0.4)); z-index: 5; border: 2px solid #D4AF37; }
     .top1-card .c-rank { color: #D4AF37; font-weight: bold; }
     .top1-card::after { content: '👑'; position: absolute; top: -15px; left: -10px; font-size: 2rem; transform: rotate(-15deg); filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2)); }
@@ -181,7 +181,6 @@
     .top2-card { filter: drop-shadow(0 0 12px rgba(192, 192, 192, 0.5)); z-index: 4; border: 1px solid #c0c0c0;}
     .top3-card { filter: drop-shadow(0 0 12px rgba(205, 127, 50, 0.4)); z-index: 3; border: 1px solid #cd7f32;}
 
-    /* Couleurs de fond des badges sur la carte */
     .c-status.safe { background-color: var(--accent); }
     .c-status.nominee { background-color: var(--accent2); }
     .c-status.saved_judges, .c-status.saved_public { background-color: #7B9EB8; }
@@ -189,7 +188,7 @@
     .c-status.winner { background-color: #D4AF37; }
     .c-status.tbd { background-color: var(--line); color: var(--text); }
 
-    /* PILULES CLASSIQUES (Pour la page profil) */
+    /* PILULES CLASSIQUES */
     .pill { display: inline-block; margin-top: .5rem; padding: .3rem .8rem; border-radius: 999px; font-size: .75rem; font-weight: 600; border: none; letter-spacing: 0.05em; text-transform: uppercase; }
     .safe { background: var(--accent); color: white; }
     .nominee { background: var(--accent2); color: white; }
@@ -200,6 +199,10 @@
     
     .row { display: grid; grid-template-columns: 1fr; gap: 1rem; }
     @media (min-width: 840px) { .row.two { grid-template-columns: 300px 1fr; gap: 2rem; } }
+    
+    /* FIX MOBILE : On force le texte à rester dans la colonne */
+    .profile-content { min-width: 0; width: 100%; }
+
     .profile-img { width: 100%; max-width: 300px; border-radius: 6px; border: 5px solid #fff; box-shadow: 0 8px 24px rgba(0,0,0,0.15); transform: rotate(-2deg); }
     .btn { text-decoration: none; color: var(--text); border: 1px solid var(--line); background: var(--panel); border-radius: 4px; padding: .5rem .9rem; display: inline-block; cursor: pointer; transition: all 0.2s; font-family: 'Poppins'; font-weight: 600; font-size: 0.85rem;}
     .btn:hover { background: var(--panel2); transform: translateY(-1px); }
@@ -227,6 +230,7 @@
     .error-box h3 { margin-top: 0; color: #9B1C1C; font-family: 'Playfair Display'; font-size: 1.5rem;}
     .error-box p { font-weight: 600; }
 
+    /* REGLAGES MOBILES AFFINÉS */
     @media (max-width: 680px) {
       th, td { font-size: .8rem; padding: .5rem .4rem; }
       .brand h1 { font-size: 1.05rem; }
@@ -235,7 +239,8 @@
       .filters { flex-direction: column; align-items: stretch; gap: .45rem; }
       input, select { width: 100%; font-size: .9rem; padding: 0.7rem; }
       .card-paper, .card { padding: 1rem; }
-      .profile-img { max-width: 80%; margin: 0 auto; display: block; }
+      /* L'image devient plus compacte et se redresse pour éviter les débordements */
+      .profile-img { max-width: 200px; margin: 0 auto 1.5rem auto; display: block; transform: rotate(0deg); }
     }
   </style>
 </head>
@@ -838,9 +843,9 @@ function renderProfile(contestantId) {
  ${nextContestant ? `<button class="btn" onclick="location.hash='#profile/${nextContestant.id}'">${getContestantName(nextContestant.id)} →</button>` : ''}
  </div>
  <div class="row two" style="margin-top:1.5rem">
- <div><img class="profile-img" src="${c.photo_url}" data-contestant-id="${c.id}" alt="${c.name}" onerror="handleImageFallback(this)" /></div>
- <div>
- <h2 style="font-size:2.5rem; margin-bottom: 0.2rem;">${getContestantName(c.id)}</h2>
+ <div style="text-align: center;"><img class="profile-img" src="${c.photo_url}" data-contestant-id="${c.id}" alt="${c.name}" onerror="handleImageFallback(this)" /></div>
+ <div class="profile-content">
+ <h2 style="font-size: clamp(1.8rem, 5vw, 2.5rem); margin-bottom: 0.2rem; word-break: break-word;">${getContestantName(c.id)}</h2>
  ${c.bio ? `<p>${c.bio}</p>` : ''}
  ${meta ? `<p class="small" style="font-size:1rem;">${meta}</p>` : ''}
 
