@@ -258,6 +258,8 @@
         <option value="en">🇺🇸 EN</option>
         <option value="es">🇪🇸 ES</option>
         <option value="ko">🇰🇷 KO</option>
+        <option value="zh">🇨🇳 ZH</option>
+        <option value="ja">🇯🇵 JA</option>
       </select>
     </div>
   </div>
@@ -334,6 +336,36 @@ const I18N = {
     votes: "투표", vote_now: "학생 응원하기", no_vote_data: "이 라운드의 투표함은 닫혔습니다.", avail_vote_rounds: "투표 가능한 라운드:", total_votes: "총 투표수:", last_refresh: "최근 새로고침:",
     hl_title: "🌟 우수 학생 명단", hl_top3: "수석", hl_rise: "최고의 발전", hl_danger: "경고 (위험)", hl_jury: "심사위원의 선택", hl_public: "대중의 선택", hl_shock: "하이라이트",
     r_prerank: "초기 평가", r_r1: "라운드 1", r_r2: "라운드 2", r_r3: "라운드 3", r_r4: "라운드 4", r_r5: "준결승", r_final: "결승"
+  },
+  zh: {
+    tagline: "第二季 • Back to School", welcome_title: "欢迎来到学院", nav_contestants: "学院", nav_rankings: "排名", nav_votes: "投票",
+    search_ph: "搜索学生...", all_status: "所有状态", safe: "安全", nominee: "红区", saved_judges: "拯救 (评委)", saved_public: "拯救 (观众)", eliminated: "淘汰", tbd: "待定",
+    winner: "冠军", second: "第二名", third: "第三名", fourth: "第四名", fifth: "第五名", sixth: "第六名", seventh: "第七名",
+    auto_updated: "文件更新于:", no_contestants: "未找到学生。",
+    rank: "排名", pos: "位置", name: "姓名", rankings_desc: "班级排名轨迹。使用下拉菜单查看过去的报告。",
+    nominations: "状态公告板", nominee_lbl: "红区", saved_judges_lbl: "拯救 (评委)", saved_public_lbl: "拯救 (观众)", eliminated_lbl: "淘汰",
+    global_chart: "全班排名走势", perf_score: "声乐得分", official_rank: "官方排名",
+    back_contestants: "← 返回公告板", contestant_not_found: "未找到该学生档案。", rounds_overview: "详细成绩单", round: "轮次", official: "官方", status: "状态",
+    performances: "表演", song: "歌曲", links: "链接", link_perf: "观看", no_links: "暂无记录。",
+    indiv_chart: "学生进步曲线", country: "国家", pronouns: "代词", instagram: "Instagram",
+    votes: "投票", vote_now: "支持学生", no_vote_data: "本轮投票箱已关闭。", avail_vote_rounds: "可投票轮次:", total_votes: "总票数:", last_refresh: "最后更新:",
+    hl_title: "🌟 荣誉榜", hl_top3: "第一名", hl_rise: "最大进步", hl_danger: "警告 (危险)", hl_jury: "评委最爱", hl_public: "观众选择", hl_shock: "亮点",
+    r_prerank: "初步评估", r_r1: "第一轮", r_r2: "第二轮", r_r3: "第三轮", r_r4: "第四轮", r_r5: "半决赛", r_final: "决赛"
+  },
+  ja: {
+    tagline: "シーズン 2 • Back to School", welcome_title: "アカデミーへようこそ", nav_contestants: "アカデミー", nav_rankings: "ランキング", nav_votes: "投票",
+    search_ph: "学生を検索...", all_status: "すべてのステータス", safe: "セーフ", nominee: "レッドゾーン", saved_judges: "救済 (審査員)", saved_public: "救済 (視聴者)", eliminated: "脱落", tbd: "未定",
+    winner: "優勝", second: "2位", third: "3位", fourth: "4位", fifth: "5位", sixth: "6位", seventh: "7位",
+    auto_updated: "更新日:", no_contestants: "学生が見つかりません。",
+    rank: "順位", pos: "位置", name: "名前", rankings_desc: "クラス順位の推移。過去のレポートを見るにはメニューを使用してください。",
+    nominations: "ステータス掲示板", nominee_lbl: "レッドゾーン", saved_judges_lbl: "救済 (審査員)", saved_public_lbl: "救済 (視聴者)", eliminated_lbl: "脱落",
+    global_chart: "クラス全体の推移", perf_score: "ボーカルスコア", official_rank: "公式順位",
+    back_contestants: "← 掲示板に戻る", contestant_not_found: "学生ファイルが見つかりません。", rounds_overview: "成績表", round: "ラウンド", official: "公式", status: "ステータス",
+    performances: "パフォーマンス", song: "曲", links: "リンク", link_perf: "見る", no_links: "記録なし",
+    indiv_chart: "学生の成長曲線", country: "国", pronouns: "代名詞", instagram: "Instagram",
+    votes: "投票", vote_now: "学生を応援する", no_vote_data: "このラウンドの投票箱は閉じています。", avail_vote_rounds: "投票可能なラウンド:", total_votes: "総投票数:", last_refresh: "最終更新:",
+    hl_title: "🌟 名誉の殿堂", hl_top3: "首席", hl_rise: "最大の成長", hl_danger: "警告 (危険)", hl_jury: "審査員のお気に入り", hl_public: "視聴者の選択", hl_shock: "ハイライト",
+    r_prerank: "初期評価", r_r1: "ラウンド 1", r_r2: "ラウンド 2", r_r3: "ラウンド 3", r_r4: "ラウンド 4", r_r5: "準決勝", r_final: "決勝"
   }
 };
 
@@ -352,7 +384,8 @@ const CONFIG = {
 };
 
 const ROUND_ORDER = ["PRERANK", "ROUND_1", "ROUND_2", "ROUND_3", "ROUND_4", "ROUND_5", "FINAL"];
-const JUDGE_NAMES = ["Neitsu", "Bibi", "Kaina", "Hauras", "Aya"];
+/* MISE A JOUR DU JURY (Départ de Bibi et Aya, arrivée de Heaven et Aqua) */
+const JUDGE_NAMES = ["Neitsu", "Hauras", "Heaven", "Kaina", "Aqua"];
 const FIXED_ELIMINATED_RANKS = {};
 
 // ==========================================
