@@ -105,7 +105,7 @@
         padding: 1rem 0;
     }
     
-    /* CARTES ÉTUDIANTES S2 : CRÉÉES EN CSS POUR ÉVITER LE BUG DE TRANSPARENCE */
+    /* CARTES ÉTUDIANTES S2 */
     .contestant-card {
       position: relative;
       width: 100%;
@@ -114,13 +114,11 @@
       background-color: var(--card-bg);
       border-radius: 12px;
       cursor: pointer;
-      /* Rotation aléatoire et ombre douce sur le liège */
       transform: rotate(calc(-2deg + 4deg * var(--rand, 0.5))); 
       transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.2s ease, filter 0.2s ease;
       box-shadow: 0 8px 15px rgba(0,0,0,0.15), inset 0 0 0 1px rgba(255,255,255,0.8);
     }
     
-    /* La petite "encoche" perforée en haut de la carte */
     .contestant-card::before {
       content: '';
       position: absolute;
@@ -134,7 +132,6 @@
       box-shadow: inset 0 1px 3px rgba(0,0,0,0.2);
     }
 
-    /* Animation au survol */
     .contestant-card:hover { 
         transform: scale(1.05) rotate(0deg) !important; 
         box-shadow: 0 15px 30px rgba(0,0,0,0.2), inset 0 0 0 1px rgba(255,255,255,0.9);
@@ -143,7 +140,6 @@
     
     .contestant-card.eliminated-card { filter: grayscale(100%) opacity(0.7); box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
     
-    /* PLACEMENT DES DONNÉES SUR LA CARTE CSS */
     .c-pic {
         position: absolute; top: 15%; left: 5%; width: 30%; height: 70%;
         object-fit: cover; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);
@@ -165,7 +161,6 @@
         font-size: 0.85rem; color: var(--text); font-weight: 600;
     }
     
-    /* Nouveaux badges de statut pour la carte */
     .c-status { 
         position: absolute; bottom: 10%; right: 5%; 
         font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; 
@@ -200,9 +195,7 @@
     .row { display: grid; grid-template-columns: 1fr; gap: 1rem; }
     @media (min-width: 840px) { .row.two { grid-template-columns: 300px 1fr; gap: 2rem; } }
     
-    /* FIX MOBILE : On force le texte à rester dans la colonne */
     .profile-content { min-width: 0; width: 100%; }
-
     .profile-img { width: 100%; max-width: 300px; border-radius: 6px; border: 5px solid #fff; box-shadow: 0 8px 24px rgba(0,0,0,0.15); transform: rotate(-2deg); }
     .btn { text-decoration: none; color: var(--text); border: 1px solid var(--line); background: var(--panel); border-radius: 4px; padding: .5rem .9rem; display: inline-block; cursor: pointer; transition: all 0.2s; font-family: 'Poppins'; font-weight: 600; font-size: 0.85rem;}
     .btn:hover { background: var(--panel2); transform: translateY(-1px); }
@@ -239,7 +232,6 @@
       .filters { flex-direction: column; align-items: stretch; gap: .45rem; }
       input, select { width: 100%; font-size: .9rem; padding: 0.7rem; }
       .card-paper, .card { padding: 1rem; }
-      /* L'image devient plus compacte et se redresse pour éviter les débordements */
       .profile-img { max-width: 200px; margin: 0 auto 1.5rem auto; display: block; transform: rotate(0deg); }
     }
   </style>
@@ -337,7 +329,7 @@ const I18N = {
     performances: "공연", song: "노래", links: "링크", link_perf: "보기", no_links: "아직 기록이 없습니다.",
     indiv_chart: "학생 진화 차트", country: "국가", pronouns: "대명사", instagram: "인스타그램",
     votes: "투표", vote_now: "학생 응원하기", no_vote_data: "이 라운드의 투표함은 닫혔습니다.", avail_vote_rounds: "투표 가능한 라운드:", total_votes: "총 투표수:", last_refresh: "최근 새로고침:",
-    hl_title: "🌟 우수 학생 명단", hl_top3: "수석", hl_rise: "최고의 발전", hl_danger: "경고 (위험)", hl_jury: "심사위원의 선택", hl_public: "대중의 선택", hl_shock: "하이라이트",
+    hl_title: "🌟 우수 학생 명단", 고수: "수석", hl_rise: "최고의 발전", hl_danger: "경고 (위험)", hl_jury: "심사위원의 선택", hl_public: "대중의 선택", hl_shock: "하이라이트",
     r_prerank: "초기 평가", r_r1: "라운드 1", r_r2: "라운드 2", r_r3: "라운드 3", r_r4: "라운드 4", r_r5: "준결승", r_final: "결승",
     opening_soon: "School is opening soon"
   },
@@ -390,7 +382,6 @@ const CONFIG = {
 };
 
 const ROUND_ORDER = ["PRERANK", "ROUND_1", "ROUND_2", "ROUND_3", "ROUND_4", "ROUND_5", "FINAL"];
-/* JURY MIS A JOUR : Neitsu, Hauras, Heaven, Kaina, Aqua, Aya */
 const JUDGE_NAMES = ["Neitsu", "Hauras", "Heaven", "Kaina", "Aqua", "Aya"];
 const FIXED_ELIMINATED_RANKS = {};
 
@@ -434,13 +425,19 @@ function getContestantName(id) {
  return String(raw || '').trim() || id;
 }
 function colorForIndex(i) { const hue = (i * 47) % 360; return `hsl(${hue} 40% 50%)`; }
+
+/* MODIFICATION : On essaye .png d'abord, puis .jpg en cas d'erreur */
 function handleImageFallback(img) {
  const step = Number(img.dataset.fallbackStep || '0');
  const contestantId = String(img.dataset.contestantId || '').trim();
- const canonicalLocal = contestantId ? `assets/${contestantId}.jpg` : '';
- const currentSrc = String(img.getAttribute('src') || '');
- if (step === 0 && canonicalLocal && !currentSrc.endsWith(canonicalLocal)) { img.dataset.fallbackStep = '1'; img.src = canonicalLocal; return; }
- img.onerror = null; img.src = 'https://images.unsplash.com/photo-1517841905240-472988babdf9?ixlib=rb-1.2.1&auto=format&fit=crop&w=300&q=80'; 
+ 
+ if (step === 0 && contestantId) {
+     img.dataset.fallbackStep = '1';
+     img.src = `assets/${contestantId}.jpg`;
+     return;
+ }
+ img.onerror = null;
+ img.src = 'https://images.unsplash.com/photo-1517841905240-472988babdf9?ixlib=rb-1.2.1&auto=format&fit=crop&w=300&q=80'; 
 }
 
 async function fetchSheetTab(sheetName) {
@@ -505,6 +502,8 @@ async function loadDataFromRoundTabs() {
  if (!name) return;
  const id = normId(name);
  const instagram = String(pickValue(row, ['instagram', 'instagram_handle', 'username']) || '').trim();
+ const country = String(pickValue(row, ['country', 'pays', 'origine']) || '').trim();
+ const pronouns = String(pickValue(row, ['pronouns', 'pronoms']) || '').trim();
  const performance = String(pickValue(row, ['performance', 'song', 'song_title', 'performance1', 'performance 1']) || '').trim();
  const group_song = String(pickValue(row, ['performance2', 'performance 2']) || '').trim();
  const link = String(pickValue(row, ['link', 'performance_link', 'youtube_url', 'url', 'linktotheperformance', 'linktotheperformance1']) || '').trim();
@@ -523,8 +522,16 @@ async function loadDataFromRoundTabs() {
  else if (statusValueRaw.includes('nominee') || statusValueRaw.includes('rouge')) statusValue = 'nominee';
  else if (statusValueRaw.includes('safe')) statusValue = 'safe';
 
- if (!contestantsMap.has(id)) contestantsMap.set(id, { id, name, photo_url: `assets/${id}.jpg`, country: '', bio: '', instagram, pronouns: '' });
- if (instagram && !contestantsMap.get(id).instagram) contestantsMap.get(id).instagram = instagram;
+ /* MODIFICATION : Par défaut on cherche du .png dans le HTML ! */
+ if (!contestantsMap.has(id)) {
+     contestantsMap.set(id, { id, name, photo_url: `assets/${id}.png`, country, bio: '', instagram, pronouns });
+ } else {
+     const c = contestantsMap.get(id);
+     if (country && !c.country) c.country = country;
+     if (pronouns && !c.pronouns) c.pronouns = pronouns;
+     if (instagram && !c.instagram) c.instagram = instagram;
+ }
+ 
  if (Number.isFinite(officialRank)) judge_rankings.push({ round_id, judge_name: 'official', contestant_id: id, rank: officialRank });
  if (Number.isFinite(perfScore)) scores.push({ round_id, contestant_id: id, total: perfScore });
  if (performance || link) submissions.push({ round_id, contestant_id: id, song_title: performance, group_song: group_song, bandlab_url: link2, youtube_url: link, notes: '' });
