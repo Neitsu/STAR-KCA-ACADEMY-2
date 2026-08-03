@@ -338,7 +338,7 @@ const I18N = {
     auto_updated: "更新日:", no_contestants: "学生が見つかりません。",
     rank: "順位", pos: "位置", name: "名前", rankings_desc: "クラス順位の推移。過去のレポートを見るにはメニューを使用してください。",
     nominations: "ステータス掲示板", nominee_lbl: "レッドゾーン", saved_judges_lbl: "救済 (審査員)", saved_public_lbl: "救済 (視聴者)", eliminated_lbl: "脱落",
-    global_chart: "クラス全体の推移", profile_chart: "ボーカルスコア", official_rank: "公式順位",
+    global_chart: "クラス全体の推移", perf_score: "ボーカルスコア", official_rank: "公式順位",
     back_contestants: "← 掲示板に戻る", contestant_not_found: "学生ファイルが見つかりません。", rounds_overview: "成績表", round: "ラウンド", official: "公式", status: "ステータス",
     performances: "パフォーマンス", song: "曲", links: "リンク", link_perf: "見る", no_links: "記録なし",
     indiv_chart: "学生の成長曲線", country: "国", pronouns: "代名詞", instagram: "Instagram",
@@ -480,7 +480,6 @@ async function loadDataFromRoundTabs() {
  for (const [rid, tab] of Object.entries(CONFIG.ROUND_TABS)) { rowsByRound[rid] = await fetchOptionalSheetTab(tab); }
  const contestantsMap = new Map();
  const judge_rankings = []; const scores = []; const submissions = [];
- const round_status_clean = []; // CORRECTION : Tableau propre pour éviter les doublons au rafraîchissement
 
  Object.entries(rowsByRound).forEach(([round_id, rows]) => {
  rows.forEach((row) => {
@@ -520,7 +519,7 @@ async function loadDataFromRoundTabs() {
  if (Number.isFinite(officialRank)) judge_rankings.push({ round_id, judge_name: 'official', contestant_id: id, rank: officialRank });
  if (Number.isFinite(perfScore)) scores.push({ round_id, contestant_id: id, total: perfScore });
  if (performance || link) submissions.push({ round_id, contestant_id: id, song_title: performance, group_song: group_song, bandlab_url: link2, youtube_url: link, notes: '' });
- if (statusValue) round_status_clean.push({ round_id, contestant_id: id, status: statusValue });
+ if (statusValue) state.data.round_status.push({ round_id, contestant_id: id, status: statusValue });
 
  JUDGE_NAMES.forEach(jn => {
  const val = parseNum(pickValue(row, [jn, `${jn}_rank`, `${jn} rank`]));
@@ -528,7 +527,7 @@ async function loadDataFromRoundTabs() {
  });
  });
  });
- return { contestants: [...contestantsMap.values()], rounds: [], submissions, scores, judge_rankings, round_status: round_status_clean, votes_live: [] };
+ return { contestants: [...contestantsMap.values()], rounds: [], submissions, scores, judge_rankings, round_status: state.data.round_status, votes_live: [] };
 }
 
 async function loadData() { 
@@ -536,11 +535,19 @@ async function loadData() {
   
   try {
     const votesRaw = await fetchOptionalSheetTab(CONFIG.SHEETS.votes_live);
-    state.data.votes_live = votesRaw.map(r => ({
-      round_id: canonicalRoundId(r.round_id || r.round || ''),
-      contestant_id: normId(r.contestant_id || r.contestant || r.name || ''),
-      votes_count: parseNum(r.votes_count || r.votes || 0)
-    })).filter(v => v.contestant_id && v.round_id);
+    state.data.votes_live = votesRaw.map(r => {
+      const rid = pickValue(r, ['round_id', 'round', 'a']);
+      const cid = pickValue(r, ['contestant_id', 'contestant', 'name', 'b']);
+      let vcount = pickValue(r, ['votes_count', 'votes', 'count', 'c', '']);
+      if (vcount === '' && Object.values(r).length >= 3) {
+         vcount = Object.values(r)[2];
+      }
+      return {
+        round_id: canonicalRoundId(rid),
+        contestant_id: normId(cid),
+        votes_count: parseNum(vcount)
+      };
+    }).filter(v => v.contestant_id && v.round_id && !v.round_id.includes('ROUNDID'));
   } catch (e) {
     console.warn("L'onglet votes_live n'a pas pu être chargé.", e);
   }
