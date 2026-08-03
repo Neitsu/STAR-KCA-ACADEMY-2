@@ -17,7 +17,6 @@
       --accent: #9CB4A6; 
       --accent2: #D48C70; 
       --radius: 12px;
-      /* Couleur de la carte en dur pour éviter le bug de transparence */
       --card-bg: #FDFBF7; 
     }
     * { box-sizing: border-box; }
@@ -34,7 +33,6 @@
     h1, h2, h3 { font-family: 'Playfair Display', serif; }
     .container { width: min(1200px, 94vw); margin: 0 auto; }
     
-    /* EN-TÊTE */
     header {
       position: sticky; top: 0; z-index: 30;
       backdrop-filter: blur(12px);
@@ -68,7 +66,6 @@
     .page { display: none; }
     .page.active { display: block; animation: fadeInSlide 0.35s ease forwards; }
 
-    /* BLOC DE RECHERCHE "PAPIER" */
     .card-paper {
       background: rgba(255, 255, 255, 0.85);
       backdrop-filter: blur(8px);
@@ -97,7 +94,6 @@
     }
     input:focus, select:focus { border-color: var(--accent); background: var(--panel); }
     
-    /* GRILLE ÉTUDIANTE S2 */
     .contestants-grid { 
         display: grid; gap: 2.5rem; 
         grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); 
@@ -105,7 +101,6 @@
         padding: 1rem 0;
     }
     
-    /* CARTES ÉTUDIANTES S2 */
     .contestant-card {
       position: relative;
       width: 100%;
@@ -169,7 +164,6 @@
         box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     }
 
-    /* L'ÉLITE : TOP 3 */
     .top1-card { filter: drop-shadow(0 0 15px rgba(226, 192, 68, 0.4)); z-index: 5; border: 2px solid #D4AF37; }
     .top1-card .c-rank { color: #D4AF37; font-weight: bold; }
     .top1-card::after { content: '👑'; position: absolute; top: -15px; left: -10px; font-size: 2rem; transform: rotate(-15deg); filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2)); }
@@ -184,7 +178,6 @@
     .c-status.winner { background-color: #D4AF37; }
     .c-status.tbd { background-color: var(--line); color: var(--text); }
 
-    /* PILULES CLASSIQUES */
     .pill { display: inline-block; margin-top: .5rem; padding: .3rem .8rem; border-radius: 999px; font-size: .75rem; font-weight: 600; border: none; letter-spacing: 0.05em; text-transform: uppercase; }
     .safe { background: var(--accent); color: white; }
     .nominee { background: var(--accent2); color: white; }
@@ -212,19 +205,7 @@
     .vote-row { margin-bottom: 1rem; }
     .bar { width: 100%; height: 12px; border: 1px solid var(--line); background: var(--panel2); border-radius: 999px; overflow: hidden; margin-top: 0.3rem;}
     .bar > span { display: block; height: 100%; background: var(--accent); transition: width 0.5s ease; }
-    
-    .highlight-grid { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); margin-top: 1rem; }
-    .highlight-item { background: var(--panel2); border: 1px solid var(--line); border-radius: 4px; padding: 1.2rem; transition: transform .15s ease; }
-    .highlight-item:hover { transform: translateY(-3px); box-shadow: 0 6px 15px rgba(0,0,0,0.05); }
-    .highlight-item h4 { margin: 0 0 .5rem; font-size: .8rem; color: var(--accent2); text-transform: uppercase; letter-spacing: .08em; font-family: 'Poppins'; }
-    .highlight-item p { margin: 0; font-size: 1.1rem; font-weight: 600; color: var(--text); font-family: 'Playfair Display'; }
-    .highlight-item .desc { display: block; font-size: .85rem; color: var(--muted); font-weight: normal; margin-top: .4rem; line-height: 1.4; font-family: 'Poppins'; }
 
-    .error-box { grid-column: 1/-1; padding: 2rem; background: #FDE8E8; border: 2px solid #F98080; border-radius: 12px; color: #9B1C1C; margin-top: 1rem;}
-    .error-box h3 { margin-top: 0; color: #9B1C1C; font-family: 'Playfair Display'; font-size: 1.5rem;}
-    .error-box p { font-weight: 600; }
-
-    /* REGLAGES MOBILES AFFINÉS */
     @media (max-width: 680px) {
       th, td { font-size: .8rem; padding: .5rem .4rem; }
       .brand h1 { font-size: 1.05rem; }
@@ -330,7 +311,7 @@ const I18N = {
     performances: "공연", song: "노래", links: "링크", link_perf: "보기", no_links: "아직 기록이 없습니다.",
     indiv_chart: "학생 진화 차트", country: "국가", pronouns: "대명사", instagram: "인스타그램",
     votes: "투표", vote_now: "학생 응원하기", no_vote_data: "이 라운드의 투표함은 닫혔습니다.", avail_vote_rounds: "투표 가능한 라운드:", total_votes: "총 투표수:", last_refresh: "최근 새로고침:",
-    hl_title: "🌟 우수 학생 명단", hl_top3: "수석", hl_rise: "최고의 발전", hl_danger: "경고 (위험)", hl_jury: "심사위원의 선택", hl_public: "대중의 선택", hl_shock: "하이라이트",
+    hl_title: "🌟 우수 학생 명단", 단: "수석", hl_rise: "최고의 발전", hl_danger: "경고 (위험)", hl_jury: "심사위원의 선택", hl_public: "대중의 선택", hl_shock: "하이라이트",
     r_prerank: "초기 평가", r_r1: "라운드 1", r_r2: "라운드 2", r_r3: "라운드 3", r_r4: "라운드 4", r_r5: "준결승", r_final: "결승",
     opening_soon: "School is opening soon"
   },
@@ -376,16 +357,12 @@ function t(key) { return I18N[currentLang][key] || key; }
 // ==========================================
 const CONFIG = {
  SHEET_ID: "1EMn0h_u7FCHsVD4kINv1Y_LDzCoHR0iFRsPtXdGlDEs",
- // Nouvel ID spécifique pour le fichier Google Sheets lié au Formulaire :
- VOTE_SHEET_ID: "1thS50JjY1ElXjvZIPm0lpEtD2CnVyo-iw33qB-efPH0",
  SHEETS: { 
    contestants: "contestants", rounds: "rounds", submissions: "submissions", 
    scores: "scores", judge_rankings: "judge_rankings", round_status: "round_status", 
-   // L'onglet contenant les réponses brutes dans le nouveau fichier :
-   votes_raw: "VOTING S2 (réponses)" 
+   votes_live: "votes_live" // Ton onglet de votes de la saison 1
  },
  ROUND_TABS: { PRERANK: "PRERANK", ROUND_1: "R1", ROUND_2: "R2", ROUND_3: "R3", ROUND_4: "R4", ROUND_5: "R5", FINAL: "R6" },
- // Le lien Google Forms officiel :
  VOTE_FORM_URL: "https://forms.gle/63aiEEd9ioR8juBL9",
  REFRESH_MS: 30000
 };
@@ -448,11 +425,9 @@ function handleImageFallback(img) {
  img.src = 'https://images.unsplash.com/photo-1517841905240-472988babdf9?ixlib=rb-1.2.1&auto=format&fit=crop&w=300&q=80'; 
 }
 
-// Ajout d'un paramètre customSheetId pour cibler un autre fichier Sheets
-async function fetchSheetTab(sheetName, customSheetId = null) {
- const targetId = customSheetId || CONFIG.SHEET_ID;
- if (!targetId) return []; 
- const url = `https://docs.google.com/spreadsheets/d/${targetId}/gviz/tq?sheet=${encodeURIComponent(sheetName)}&tqx=out:json`;
+async function fetchSheetTab(sheetName) {
+ if (!CONFIG.SHEET_ID) return []; 
+ const url = `https://docs.google.com/spreadsheets/d/${CONFIG.SHEET_ID}/gviz/tq?sheet=${encodeURIComponent(sheetName)}&tqx=out:json`;
  try {
  const txt = await fetch(url).then(r => r.text());
  const m = txt.match(/google\.visualization\.Query\.setResponse\((.*)\);/s);
@@ -484,7 +459,7 @@ async function fetchSheetTab(sheetName, customSheetId = null) {
  } catch (e) { return []; }
 }
 
-async function fetchOptionalSheetTab(sheetName, customSheetId = null) { return await fetchSheetTab(sheetName, customSheetId); }
+async function fetchOptionalSheetTab(sheetName) { return await fetchSheetTab(sheetName); }
 function keyNorm(k) { return String(k || '').toLowerCase().replace(/[^a-z0-9]/g, ''); }
 function pickValue(row, aliases) {
  const keys = Object.keys(row);
@@ -558,35 +533,15 @@ async function loadDataFromRoundTabs() {
 async function loadData() { 
   state.data = await loadDataFromRoundTabs(); 
   
-  // ==============================================
-  // RÉCUPÉRATION DES VOTES DIRECTEMENT DU FORMULAIRE
-  // ==============================================
   try {
-    const rawVotes = await fetchOptionalSheetTab(CONFIG.SHEETS.votes_raw, CONFIG.VOTE_SHEET_ID);
-    const validIds = new Set(state.data.contestants.map(c => c.id));
-    const voteCounts = {};
-
-    rawVotes.forEach(row => {
-      // On fouille dans chaque cellule pour trouver les noms cochés par le votant
-      Object.values(row).forEach(val => {
-        if (typeof val === 'string') {
-          // Google Forms regroupe les cases à cocher avec des virgules
-          const parts = val.split(',');
-          parts.forEach(p => {
-            const cid = normId(p);
-            if (validIds.has(cid)) {
-              voteCounts[cid] = (voteCounts[cid] || 0) + 1;
-            }
-          });
-        }
-      });
-    });
-
-    const timestamp = new Date().toLocaleTimeString(currentLang, { hour: '2-digit', minute: '2-digit' });
-    // On sauvegarde ce décompte pour l'attribuer plus bas au Round en cours
-    state.data.raw_votes_map = { counts: voteCounts, time: timestamp };
+    const votesRaw = await fetchOptionalSheetTab(CONFIG.SHEETS.votes_live);
+    state.data.votes_live = votesRaw.map(r => ({
+      round_id: canonicalRoundId(r.round_id || r.round || ''),
+      contestant_id: normId(r.contestant_id || r.contestant || r.name || ''),
+      votes_count: parseNum(r.votes_count || r.votes || 0)
+    })).filter(v => v.contestant_id && v.round_id);
   } catch (e) {
-    console.warn("L'onglet Google Forms n'a pas pu être chargé.", e);
+    console.warn("L'onglet votes_live n'a pas pu être chargé.", e);
   }
 }
 
@@ -1106,21 +1061,6 @@ async function hydrate() {
  const officialByRound = getOfficialRankingByRound();
  state.latestRound = getLatestRound(officialByRound);
  if(!state.selectedRankingsRound) state.selectedRankingsRound = state.latestRound;
-
- // ==============================================
- // ATTACHER LES VOTES AU ROUND ACTUEL
- // ==============================================
- if (state.data.raw_votes_map) {
-   const { counts, time } = state.data.raw_votes_map;
-   state.data.votes_live = Object.entries(counts).map(([cid, count]) => ({
-     // On relie automatiquement ces votes à ton Round en cours
-     round_id: state.latestRound, 
-     contestant_id: cid,
-     votes_count: count,
-     last_updated: time
-   }));
- }
-
  const roundsWithVotes = ROUND_ORDER.filter(r => state.data.votes_live.some(v => v.round_id === r));
  state.votesRound = roundsWithVotes[roundsWithVotes.length - 1] || state.latestRound;
 }
