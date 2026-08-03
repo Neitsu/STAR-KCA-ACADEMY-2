@@ -376,9 +376,17 @@ function t(key) { return I18N[currentLang][key] || key; }
 // ==========================================
 const CONFIG = {
  SHEET_ID: "1EMn0h_u7FCHsVD4kINv1Y_LDzCoHR0iFRsPtXdGlDEs",
- SHEETS: { contestants: "contestants", rounds: "rounds", submissions: "submissions", scores: "scores", judge_rankings: "judge_rankings", round_status: "round_status", votes_live: "votes_live" },
+ // Nouvel ID spécifique pour le fichier Google Sheets lié au Formulaire :
+ VOTE_SHEET_ID: "1thS50JjY1ElXjvZIPm0lpEtD2CnVyo-iw33qB-efPH0",
+ SHEETS: { 
+   contestants: "contestants", rounds: "rounds", submissions: "submissions", 
+   scores: "scores", judge_rankings: "judge_rankings", round_status: "round_status", 
+   // L'onglet contenant les réponses brutes dans le nouveau fichier :
+   votes_raw: "VOTING S2 (réponses)" 
+ },
  ROUND_TABS: { PRERANK: "PRERANK", ROUND_1: "R1", ROUND_2: "R2", ROUND_3: "R3", ROUND_4: "R4", ROUND_5: "R5", FINAL: "R6" },
- VOTE_FORM_URL: "",
+ // Le lien Google Forms officiel :
+ VOTE_FORM_URL: "https://forms.gle/63aiEEd9ioR8juBL9",
  REFRESH_MS: 30000
 };
 
@@ -440,9 +448,11 @@ function handleImageFallback(img) {
  img.src = 'https://images.unsplash.com/photo-1517841905240-472988babdf9?ixlib=rb-1.2.1&auto=format&fit=crop&w=300&q=80'; 
 }
 
-async function fetchSheetTab(sheetName) {
- if (!CONFIG.SHEET_ID) return []; 
- const url = `https://docs.google.com/spreadsheets/d/${CONFIG.SHEET_ID}/gviz/tq?sheet=${encodeURIComponent(sheetName)}&tqx=out:json`;
+// Ajout d'un paramètre customSheetId pour cibler un autre fichier Sheets
+async function fetchSheetTab(sheetName, customSheetId = null) {
+ const targetId = customSheetId || CONFIG.SHEET_ID;
+ if (!targetId) return []; 
+ const url = `https://docs.google.com/spreadsheets/d/${targetId}/gviz/tq?sheet=${encodeURIComponent(sheetName)}&tqx=out:json`;
  try {
  const txt = await fetch(url).then(r => r.text());
  const m = txt.match(/google\.visualization\.Query\.setResponse\((.*)\);/s);
@@ -474,7 +484,7 @@ async function fetchSheetTab(sheetName) {
  } catch (e) { return []; }
 }
 
-async function fetchOptionalSheetTab(sheetName) { return await fetchSheetTab(sheetName); }
+async function fetchOptionalSheetTab(sheetName, customSheetId = null) { return await fetchSheetTab(sheetName, customSheetId); }
 function keyNorm(k) { return String(k || '').toLowerCase().replace(/[^a-z0-9]/g, ''); }
 function pickValue(row, aliases) {
  const keys = Object.keys(row);
@@ -545,7 +555,40 @@ async function loadDataFromRoundTabs() {
  return { contestants: [...contestantsMap.values()], rounds: [], submissions, scores, judge_rankings, round_status: state.data.round_status, votes_live: [] };
 }
 
-async function loadData() { state.data = await loadDataFromRoundTabs(); }
+async function loadData() { 
+  state.data = await loadDataFromRoundTabs(); 
+  
+  // ==============================================
+  // RÉCUPÉRATION DES VOTES DIRECTEMENT DU FORMULAIRE
+  // ==============================================
+  try {
+    const rawVotes = await fetchOptionalSheetTab(CONFIG.SHEETS.votes_raw, CONFIG.VOTE_SHEET_ID);
+    const validIds = new Set(state.data.contestants.map(c => c.id));
+    const voteCounts = {};
+
+    rawVotes.forEach(row => {
+      // On fouille dans chaque cellule pour trouver les noms cochés par le votant
+      Object.values(row).forEach(val => {
+        if (typeof val === 'string') {
+          // Google Forms regroupe les cases à cocher avec des virgules
+          const parts = val.split(',');
+          parts.forEach(p => {
+            const cid = normId(p);
+            if (validIds.has(cid)) {
+              voteCounts[cid] = (voteCounts[cid] || 0) + 1;
+            }
+          });
+        }
+      });
+    });
+
+    const timestamp = new Date().toLocaleTimeString(currentLang, { hour: '2-digit', minute: '2-digit' });
+    // On sauvegarde ce décompte pour l'attribuer plus bas au Round en cours
+    state.data.raw_votes_map = { counts: voteCounts, time: timestamp };
+  } catch (e) {
+    console.warn("L'onglet Google Forms n'a pas pu être chargé.", e);
+  }
+}
 
 function normalizeData() {
  const d = state.data;
@@ -674,7 +717,6 @@ function renderContestants() {
  const officialByRound = getOfficialRankingByRound();
  const currentRanks = officialByRound[state.latestRound] || {};
  
- /* NOUVEAUTÉ : On pré-calcule les scores pour éviter de tout recalculer à chaque fois */
  const perfScores = getPerformanceScoreByRound()[state.latestRound] || {};
  const judgesData = JUDGE_NAMES.map(j => getJudgeRankingByRound(j)[state.latestRound] || {});
  
@@ -714,17 +756,14 @@ function renderContestants() {
  const status = getStatus(state.latestRound, c.id);
  const rank = currentRanks[c.id];
  
- /* NOUVEAUTÉ : Calcul du cumul de points (Score Vocal + Juges) */
  let totalPoints = 0;
  let hasData = false;
  
- // 1. Score Vocal
  if (Number.isFinite(perfScores[c.id])) {
      totalPoints += perfScores[c.id];
      hasData = true;
  }
  
- // 2. Points des Juges (Formule : 41 - Rang)
  judgesData.forEach(jData => {
      const judgeRank = jData[c.id];
      if (Number.isFinite(judgeRank) && judgeRank >= 1) {
@@ -1067,6 +1106,21 @@ async function hydrate() {
  const officialByRound = getOfficialRankingByRound();
  state.latestRound = getLatestRound(officialByRound);
  if(!state.selectedRankingsRound) state.selectedRankingsRound = state.latestRound;
+
+ // ==============================================
+ // ATTACHER LES VOTES AU ROUND ACTUEL
+ // ==============================================
+ if (state.data.raw_votes_map) {
+   const { counts, time } = state.data.raw_votes_map;
+   state.data.votes_live = Object.entries(counts).map(([cid, count]) => ({
+     // On relie automatiquement ces votes à ton Round en cours
+     round_id: state.latestRound, 
+     contestant_id: cid,
+     votes_count: count,
+     last_updated: time
+   }));
+ }
+
  const roundsWithVotes = ROUND_ORDER.filter(r => state.data.votes_live.some(v => v.round_id === r));
  state.votesRound = roundsWithVotes[roundsWithVotes.length - 1] || state.latestRound;
 }
