@@ -311,7 +311,7 @@ const I18N = {
     performances: "공연", song: "노래", links: "링크", link_perf: "보기", no_links: "아직 기록이 없습니다.",
     indiv_chart: "학생 진화 차트", country: "국가", pronouns: "대명사", instagram: "인스타그램",
     votes: "투표", vote_now: "학생 응원하기", no_vote_data: "이 라운드의 투표함은 닫혔습니다.", avail_vote_rounds: "투표 가능한 라운드:", total_votes: "총 투표수:", last_refresh: "최근 새로고침:",
-    hl_title: "🌟 우수 학생 명단", 단: "수석", hl_rise: "최고의 발전", hl_danger: "경고 (위험)", hl_jury: "심사위원의 선택", hl_public: "대중의 선택", hl_shock: "하이라이트",
+    hl_title: "🌟 우수 학생 명단", hl_top3: "수석", hl_rise: "최고의 발전", hl_danger: "경고 (위험)", hl_jury: "심사위원의 선택", hl_public: "대중의 선택", hl_shock: "하이라이트",
     r_prerank: "초기 평가", r_r1: "라운드 1", r_r2: "라운드 2", r_r3: "라운드 3", r_r4: "라운드 4", r_r5: "준결승", r_final: "결승",
     opening_soon: "School is opening soon"
   },
@@ -533,13 +533,34 @@ async function loadDataFromRoundTabs() {
 async function loadData() { 
   state.data = await loadDataFromRoundTabs(); 
   
+  // NOUVEAUTÉ : Lecture "Blindée" de ton onglet votes_live
   try {
     const votesRaw = await fetchOptionalSheetTab(CONFIG.SHEETS.votes_live);
-    state.data.votes_live = votesRaw.map(r => ({
-      round_id: canonicalRoundId(r.round_id || r.round || ''),
-      contestant_id: normId(r.contestant_id || r.contestant || r.name || ''),
-      votes_count: parseNum(r.votes_count || r.votes || 0)
-    })).filter(v => v.contestant_id && v.round_id);
+    
+    // Si la colonne "ROUND_1" n'est pas remplie partout, on garde le dernier lu en mémoire
+    let lastSeenRound = 'ROUND_1'; 
+    state.data.votes_live = [];
+    
+    votesRaw.forEach(r => {
+      // Cherche la colonne "round_id" ou "round" (peu importe les majuscules)
+      const rawRound = pickValue(r, ['round_id', 'round', 'roundid', 'tour']);
+      if (rawRound) lastSeenRound = canonicalRoundId(rawRound);
+      
+      // Cherche le nom du candidat
+      const cid = normId(pickValue(r, ['contestant_id', 'contestant', 'name', 'nom', 'candidat']));
+      
+      // Cherche le nombre de votes
+      const count = parseNum(pickValue(r, ['votes_count', 'votes', 'count', 'score', 'total']));
+      
+      // Ajoute seulement si le nom et les votes sont valides
+      if (cid && Number.isFinite(count)) {
+        state.data.votes_live.push({
+          round_id: lastSeenRound,
+          contestant_id: cid,
+          votes_count: count
+        });
+      }
+    });
   } catch (e) {
     console.warn("L'onglet votes_live n'a pas pu être chargé.", e);
   }
