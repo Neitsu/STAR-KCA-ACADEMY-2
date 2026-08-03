@@ -357,6 +357,8 @@ function t(key) { return I18N[currentLang][key] || key; }
 // ==========================================
 const CONFIG = {
  SHEET_ID: "1EMn0h_u7FCHsVD4kINv1Y_LDzCoHR0iFRsPtXdGlDEs",
+ // On remet bien l'ID du fichier de réponses pour les votes :
+ VOTE_SHEET_ID: "1thS50JjY1ElXjvZIPm0lpEtD2CnVyo-iw33qB-efPH0",
  SHEETS: { 
    contestants: "contestants", rounds: "rounds", submissions: "submissions", 
    scores: "scores", judge_rankings: "judge_rankings", round_status: "round_status", 
@@ -425,9 +427,10 @@ function handleImageFallback(img) {
  img.src = 'https://images.unsplash.com/photo-1517841905240-472988babdf9?ixlib=rb-1.2.1&auto=format&fit=crop&w=300&q=80'; 
 }
 
-async function fetchSheetTab(sheetName) {
- if (!CONFIG.SHEET_ID) return []; 
- const url = `https://docs.google.com/spreadsheets/d/${CONFIG.SHEET_ID}/gviz/tq?sheet=${encodeURIComponent(sheetName)}&tqx=out:json`;
+async function fetchSheetTab(sheetName, customSheetId = null) {
+ const targetId = customSheetId || CONFIG.SHEET_ID;
+ if (!targetId) return []; 
+ const url = `https://docs.google.com/spreadsheets/d/${targetId}/gviz/tq?sheet=${encodeURIComponent(sheetName)}&tqx=out:json`;
  try {
  const txt = await fetch(url).then(r => r.text());
  const m = txt.match(/google\.visualization\.Query\.setResponse\((.*)\);/s);
@@ -459,7 +462,7 @@ async function fetchSheetTab(sheetName) {
  } catch (e) { return []; }
 }
 
-async function fetchOptionalSheetTab(sheetName) { return await fetchSheetTab(sheetName); }
+async function fetchOptionalSheetTab(sheetName, customSheetId = null) { return await fetchSheetTab(sheetName, customSheetId); }
 function keyNorm(k) { return String(k || '').toLowerCase().replace(/[^a-z0-9]/g, ''); }
 function pickValue(row, aliases) {
  const keys = Object.keys(row);
@@ -480,6 +483,7 @@ async function loadDataFromRoundTabs() {
  for (const [rid, tab] of Object.entries(CONFIG.ROUND_TABS)) { rowsByRound[rid] = await fetchOptionalSheetTab(tab); }
  const contestantsMap = new Map();
  const judge_rankings = []; const scores = []; const submissions = [];
+ const round_status_clean = []; // CORRECTION : Évite l'accumulation infinie des statuts à chaque rafraîchissement
 
  Object.entries(rowsByRound).forEach(([round_id, rows]) => {
  rows.forEach((row) => {
@@ -519,7 +523,7 @@ async function loadDataFromRoundTabs() {
  if (Number.isFinite(officialRank)) judge_rankings.push({ round_id, judge_name: 'official', contestant_id: id, rank: officialRank });
  if (Number.isFinite(perfScore)) scores.push({ round_id, contestant_id: id, total: perfScore });
  if (performance || link) submissions.push({ round_id, contestant_id: id, song_title: performance, group_song: group_song, bandlab_url: link2, youtube_url: link, notes: '' });
- if (statusValue) state.data.round_status.push({ round_id, contestant_id: id, status: statusValue });
+ if (statusValue) round_status_clean.push({ round_id, contestant_id: id, status: statusValue });
 
  JUDGE_NAMES.forEach(jn => {
  const val = parseNum(pickValue(row, [jn, `${jn}_rank`, `${jn} rank`]));
@@ -527,14 +531,15 @@ async function loadDataFromRoundTabs() {
  });
  });
  });
- return { contestants: [...contestantsMap.values()], rounds: [], submissions, scores, judge_rankings, round_status: state.data.round_status, votes_live: [] };
+ return { contestants: [...contestantsMap.values()], rounds: [], submissions, scores, judge_rankings, round_status: round_status_clean, votes_live: [] };
 }
 
 async function loadData() { 
   state.data = await loadDataFromRoundTabs(); 
   
   try {
-    const votesRaw = await fetchOptionalSheetTab(CONFIG.SHEETS.votes_live);
+    // On va chercher les votes dans le bon fichier de réponses (VOTE_SHEET_ID)
+    const votesRaw = await fetchOptionalSheetTab(CONFIG.SHEETS.votes_live, CONFIG.VOTE_SHEET_ID);
     state.data.votes_live = votesRaw.map(r => {
       const rid = pickValue(r, ['round_id', 'round', 'a']);
       const cid = pickValue(r, ['contestant_id', 'contestant', 'name', 'b']);
