@@ -357,10 +357,12 @@ function t(key) { return I18N[currentLang][key] || key; }
 // ==========================================
 const CONFIG = {
  SHEET_ID: "1EMn0h_u7FCHsVD4kINv1Y_LDzCoHR0iFRsPtXdGlDEs",
+ // On ajoute bien l'ID de ton fichier de réponses ici :
+ VOTE_SHEET_ID: "1thS50JjY1ElXjvZIPm0lpEtD2CnVyo-iw33qB-efPH0",
  SHEETS: { 
    contestants: "contestants", rounds: "rounds", submissions: "submissions", 
    scores: "scores", judge_rankings: "judge_rankings", round_status: "round_status", 
-   votes_live: "votes_live" // Ton onglet de votes de la saison 1
+   votes_live: "votes_live" // Ton onglet de votes 
  },
  ROUND_TABS: { PRERANK: "PRERANK", ROUND_1: "R1", ROUND_2: "R2", ROUND_3: "R3", ROUND_4: "R4", ROUND_5: "R5", FINAL: "R6" },
  VOTE_FORM_URL: "https://forms.gle/63aiEEd9ioR8juBL9",
@@ -425,9 +427,11 @@ function handleImageFallback(img) {
  img.src = 'https://images.unsplash.com/photo-1517841905240-472988babdf9?ixlib=rb-1.2.1&auto=format&fit=crop&w=300&q=80'; 
 }
 
-async function fetchSheetTab(sheetName) {
- if (!CONFIG.SHEET_ID) return []; 
- const url = `https://docs.google.com/spreadsheets/d/${CONFIG.SHEET_ID}/gviz/tq?sheet=${encodeURIComponent(sheetName)}&tqx=out:json`;
+// Fonction capable d'aller chercher dans l'ID de ton choix
+async function fetchSheetTab(sheetName, customSheetId = null) {
+ const targetId = customSheetId || CONFIG.SHEET_ID;
+ if (!targetId) return []; 
+ const url = `https://docs.google.com/spreadsheets/d/${targetId}/gviz/tq?sheet=${encodeURIComponent(sheetName)}&tqx=out:json`;
  try {
  const txt = await fetch(url).then(r => r.text());
  const m = txt.match(/google\.visualization\.Query\.setResponse\((.*)\);/s);
@@ -459,7 +463,7 @@ async function fetchSheetTab(sheetName) {
  } catch (e) { return []; }
 }
 
-async function fetchOptionalSheetTab(sheetName) { return await fetchSheetTab(sheetName); }
+async function fetchOptionalSheetTab(sheetName, customSheetId = null) { return await fetchSheetTab(sheetName, customSheetId); }
 function keyNorm(k) { return String(k || '').toLowerCase().replace(/[^a-z0-9]/g, ''); }
 function pickValue(row, aliases) {
  const keys = Object.keys(row);
@@ -533,34 +537,14 @@ async function loadDataFromRoundTabs() {
 async function loadData() { 
   state.data = await loadDataFromRoundTabs(); 
   
-  // NOUVEAUTÉ : Lecture "Blindée" de ton onglet votes_live
+  // ICI : On va bien lire l'onglet votes_live dans le fichier des réponses (VOTE_SHEET_ID)
   try {
-    const votesRaw = await fetchOptionalSheetTab(CONFIG.SHEETS.votes_live);
-    
-    // Si la colonne "ROUND_1" n'est pas remplie partout, on garde le dernier lu en mémoire
-    let lastSeenRound = 'ROUND_1'; 
-    state.data.votes_live = [];
-    
-    votesRaw.forEach(r => {
-      // Cherche la colonne "round_id" ou "round" (peu importe les majuscules)
-      const rawRound = pickValue(r, ['round_id', 'round', 'roundid', 'tour']);
-      if (rawRound) lastSeenRound = canonicalRoundId(rawRound);
-      
-      // Cherche le nom du candidat
-      const cid = normId(pickValue(r, ['contestant_id', 'contestant', 'name', 'nom', 'candidat']));
-      
-      // Cherche le nombre de votes
-      const count = parseNum(pickValue(r, ['votes_count', 'votes', 'count', 'score', 'total']));
-      
-      // Ajoute seulement si le nom et les votes sont valides
-      if (cid && Number.isFinite(count)) {
-        state.data.votes_live.push({
-          round_id: lastSeenRound,
-          contestant_id: cid,
-          votes_count: count
-        });
-      }
-    });
+    const votesRaw = await fetchOptionalSheetTab(CONFIG.SHEETS.votes_live, CONFIG.VOTE_SHEET_ID);
+    state.data.votes_live = votesRaw.map(r => ({
+      round_id: canonicalRoundId(r.round_id || r.round || ''),
+      contestant_id: normId(r.contestant_id || r.contestant || r.name || ''),
+      votes_count: parseNum(r.votes_count || r.votes || 0)
+    })).filter(v => v.contestant_id && v.round_id);
   } catch (e) {
     console.warn("L'onglet votes_live n'a pas pu être chargé.", e);
   }
