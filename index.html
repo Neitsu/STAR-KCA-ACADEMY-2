@@ -342,7 +342,7 @@ const I18N = {
     back_contestants: "← 掲示板に戻る", contestant_not_found: "学生ファイルが見つかりません。", rounds_overview: "成績表", round: "ラウンド", official: "公式", status: "ステータス",
     performances: "パフォーマンス", song: "曲", links: "リンク", link_perf: "見る", no_links: "記録なし",
     indiv_chart: "学生の成長曲線", country: "国", pronouns: "代名詞", instagram: "Instagram",
-    votes: "投票", vote_now: "学生を応援する", no_vote_data: "このラウンドの投票箱は閉じています。", avail_vote_rounds: "投票可能なラウンド:", total_votes: "総投票数:", last_refresh: "最終更新:",
+    votes: "投票", vote_now: "学生を応援する", no_vote_data: "このラウンドの投票箱は閉じています。", avail_vote_rounds: "投票可能なラウンド:", total_votes: "총 투표수:", last_refresh: "最終更新:",
     hl_title: "🌟 名誉の殿堂", hl_top3: "首席", hl_rise: "最大の成長", hl_danger: "警告 (危険)", hl_jury: "審査員のお気に入り", hl_public: "視聴者の選択", hl_shock: "ハイライト",
     r_prerank: "初期評価", r_r1: "ラウンド 1", r_r2: "ラウンド 2", r_r3: "ラウンド 3", r_r4: "ラウンド 4", r_r5: "準決勝", r_final: "決勝",
     opening_soon: "School is opening soon"
@@ -357,7 +357,6 @@ function t(key) { return I18N[currentLang][key] || key; }
 // ==========================================
 const CONFIG = {
  SHEET_ID: "1EMn0h_u7FCHsVD4kINv1Y_LDzCoHR0iFRsPtXdGlDEs",
- // On remet bien l'ID du fichier de réponses pour les votes :
  VOTE_SHEET_ID: "1thS50JjY1ElXjvZIPm0lpEtD2CnVyo-iw33qB-efPH0",
  SHEETS: { 
    contestants: "contestants", rounds: "rounds", submissions: "submissions", 
@@ -483,7 +482,7 @@ async function loadDataFromRoundTabs() {
  for (const [rid, tab] of Object.entries(CONFIG.ROUND_TABS)) { rowsByRound[rid] = await fetchOptionalSheetTab(tab); }
  const contestantsMap = new Map();
  const judge_rankings = []; const scores = []; const submissions = [];
- const round_status_clean = []; // CORRECTION : Évite l'accumulation infinie des statuts à chaque rafraîchissement
+ const round_status_clean = [];
 
  Object.entries(rowsByRound).forEach(([round_id, rows]) => {
  rows.forEach((row) => {
@@ -538,7 +537,6 @@ async function loadData() {
   state.data = await loadDataFromRoundTabs(); 
   
   try {
-    // On va chercher les votes dans le bon fichier de réponses (VOTE_SHEET_ID)
     const votesRaw = await fetchOptionalSheetTab(CONFIG.SHEETS.votes_live, CONFIG.VOTE_SHEET_ID);
     state.data.votes_live = votesRaw.map(r => {
       const rid = pickValue(r, ['round_id', 'round', 'a']);
@@ -1023,6 +1021,7 @@ function renderVotes() {
  }).sort((a, b) => b.votes - a.votes);
 
  const totalVotes = rows.reduce((sum, r) => sum + r.votes, 0);
+ const maxVotes = rows.length > 0 ? rows[0].votes : 0;
 
  root.innerHTML = `
  <div class="card-paper">
@@ -1034,7 +1033,8 @@ function renderVotes() {
  <div style="margin-top:2rem;">
  ${rows.length ? rows.map(r => {
  const pct = totalVotes > 0 ? (r.votes / totalVotes) * 100 : 0;
- return `<div class="vote-row"><div><strong style="font-family:'Playfair Display'; font-size:1.1rem;">${r.name}</strong> — ${r.votes} ${t('votes').toLowerCase()} (${pct.toFixed(1)}%)</div><div class="bar"><span style="width:${pct}%"></span></div></div>`;
+ const barPct = maxVotes > 0 ? (r.votes / maxVotes) * 100 : 0;
+ return `<div class="vote-row"><div><strong style="font-family:'Playfair Display'; font-size:1.1rem;">${r.name}</strong> — ${r.votes} ${t('votes').toLowerCase()} (${pct.toFixed(1)}%)</div><div class="bar"><span style="width:${barPct}%"></span></div></div>`;
  }).join('') : `<p>${t('no_vote_data')}</p>${roundsWithVotes.length ? `<p class="small">${t('avail_vote_rounds')} ${roundsWithVotes.map(r => getRoundLabel(r)).join(', ')}</p>` : ''}`}
  </div>
  <p class="small" style="margin-top:2rem;">${t('total_votes')} ${totalVotes} · ${t('last_refresh')} ${new Date().toLocaleString(currentLang)}</p>
