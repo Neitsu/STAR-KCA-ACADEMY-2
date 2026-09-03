@@ -429,7 +429,8 @@ function handleImageFallback(img) {
 async function fetchSheetTab(sheetName, customSheetId = null) {
  const targetId = customSheetId || CONFIG.SHEET_ID;
  if (!targetId) return []; 
- const url = `https://docs.google.com/spreadsheets/d/${targetId}/gviz/tq?sheet=${encodeURIComponent(sheetName)}&tqx=out:json`;
+ // AJOUT DU PARAMÈTRE NOCACHE POUR FORCER LA MISE À JOUR IMMÉDIATE DE GOOGLE
+ const url = `https://docs.google.com/spreadsheets/d/${targetId}/gviz/tq?sheet=${encodeURIComponent(sheetName)}&tqx=out:json&nocache=${Date.now()}`;
  try {
  const txt = await fetch(url).then(r => r.text());
  const m = txt.match(/google\.visualization\.Query\.setResponse\((.*)\);/s);
@@ -530,6 +531,23 @@ async function loadDataFromRoundTabs() {
  });
  });
  });
+
+ // NOUVEAU: Propagation automatique des statuts éliminés pour éviter de devoir les retaper dans les onglets suivants
+ const allIds = [...contestantsMap.keys()];
+ let lastStatusObj = {};
+ ROUND_ORDER.forEach(round => {
+     allIds.forEach(id => {
+         const existingIndex = round_status_clean.findIndex(r => r.round_id === round && r.contestant_id === id);
+         if (existingIndex >= 0) {
+             lastStatusObj[id] = round_status_clean[existingIndex].status;
+         } else {
+             if (lastStatusObj[id] === 'eliminated') {
+                 round_status_clean.push({ round_id: round, contestant_id: id, status: 'eliminated' });
+             }
+         }
+     });
+ });
+
  return { contestants: [...contestantsMap.values()], rounds: [], submissions, scores, judge_rankings, round_status: round_status_clean, votes_live: [] };
 }
 
@@ -644,12 +662,15 @@ function getRankingMapByView(view) {
  return getOfficialRankingByRound();
 }
 
-function getLatestRound(officialByRound) {
+// NOUVEAU: Le site détecte un round actif dès qu'il y a la moindre donnée (score, statut, chanson, juge...)
+function getLatestRound() {
  for (let i = ROUND_ORDER.length - 1; i >= 0; i--) {
- const round = ROUND_ORDER[i];
- const hasOfficial = Object.keys(officialByRound[round] || {}).length > 0;
- const hasStatus = state.data.round_status.some(r => r.round_id === round);
- if (hasOfficial || hasStatus) return round;
+   const round = ROUND_ORDER[i];
+   const hasData = state.data.judge_rankings.some(r => r.round_id === round) ||
+                   state.data.scores.some(r => r.round_id === round) ||
+                   state.data.round_status.some(r => r.round_id === round && r.status !== 'eliminated') ||
+                   state.data.submissions.some(r => r.round_id === round);
+   if (hasData) return round;
  }
  return 'PRERANK';
 }
@@ -1071,8 +1092,7 @@ function setupNav() {
 async function hydrate() {
  await loadData(); normalizeData(); enforcePrerankSafeStatus();
  
- const officialByRound = getOfficialRankingByRound();
- state.latestRound = getLatestRound(officialByRound);
+ state.latestRound = getLatestRound();
  if(!state.selectedRankingsRound) state.selectedRankingsRound = state.latestRound;
  const roundsWithVotes = ROUND_ORDER.filter(r => state.data.votes_live.some(v => v.round_id === r));
  state.votesRound = roundsWithVotes[roundsWithVotes.length - 1] || state.latestRound;
