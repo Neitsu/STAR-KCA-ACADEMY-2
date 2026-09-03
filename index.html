@@ -248,7 +248,7 @@
 
 <script>
 // ==========================================
-// 1. DICTIONNAIRES & TRADUCTIONS (i18n)
+// 1. DICTIONNAIRES & TRADUCTIONS
 // ==========================================
 const I18N = {
   fr: {
@@ -256,113 +256,43 @@ const I18N = {
     search_ph: "Rechercher une élève...", all_status: "Tous les statuts", safe: "Safe", nominee: "Zone Rouge", saved_judges: "Sauvée (Jury)", saved_public: "Sauvée (Public)", eliminated: "Éliminée", tbd: "À venir",
     winner: "GAGNANTE", second: "2ÈME", third: "3ÈME", fourth: "4ÈME", fifth: "5ÈME", sixth: "6ÈME", seventh: "7ÈME",
     auto_updated: "Dossiers des élèves à jour après le :", no_contestants: "Aucune élève trouvée.",
-    rank: "Rang", pos: "Pos", name: "Nom", rankings_desc: "Évolution du classement de la promotion. Utilisez les menus pour explorer les anciens bulletins.",
+    rank: "Rang", pos: "Pos", name: "Nom", rankings_desc: "Évolution du classement de la promotion.",
     nominations: "Tableau d'affichage des statuts", nominee_lbl: "Zone Rouge", saved_judges_lbl: "Sauvée (Jury)", saved_public_lbl: "Sauvée (Public)", eliminated_lbl: "Éliminée",
     global_chart: "Graphique d'évolution de la promotion", perf_score: "Score Vocal", official_rank: "Classement Officiel",
-    back_contestants: "← Retour au Tableau", contestant_not_found: "Dossier élève introuvable.", rounds_overview: "Bulletin de notes détaillé", round: "Round", official: "Officiel", status: "Statut",
-    performances: "Performances Vocales", song: "Chanson", links: "Liens", link_perf: "Visionner", no_links: "Aucun enregistrement.",
-    indiv_chart: "Courbe de progression de l'élève", country: "Pays", pronouns: "Pronoms", instagram: "Instagram",
-    votes: "Votes", vote_now: "Soutenir une élève", no_vote_data: "L'urne est fermée pour ce round.", avail_vote_rounds: "Rounds de vote disponibles :", total_votes: "Total des bulletins :", last_refresh: "Dernière MAJ :",
-    hl_title: "🌟 Tableau d'Honneur", hl_top3: "Major de Promotion", hl_rise: "Meilleure Progression", hl_danger: "Avertissement (Danger)", hl_jury: "Coup de Cœur Jury", hl_public: "Déléguée du Public", hl_shock: "Fait Marquant",
+    back_contestants: "← Retour au Tableau", contestant_not_found: "Dossier élève introuvable.", rounds_overview: "Bulletin de notes", round: "Round", official: "Officiel", status: "Statut",
+    performances: "Performances", song: "Chanson", links: "Liens", link_perf: "Visionner", no_links: "Aucun enregistrement.",
+    indiv_chart: "Courbe de progression", country: "Pays", pronouns: "Pronoms", instagram: "Instagram",
+    votes: "Votes", vote_now: "Soutenir une élève", no_vote_data: "L'urne est fermée.", avail_vote_rounds: "Rounds de vote disponibles :", total_votes: "Total des bulletins :", last_refresh: "Dernière MAJ :",
     r_prerank: "Éval. Initiale", r_r1: "Round 1", r_r2: "Round 2", r_r3: "Round 3", r_r4: "Round 4", r_r5: "Demi-Finale", r_final: "Finale",
-    opening_soon: "School is opening soon"
+    opening_soon: "L'Académie est en préparation..."
   },
   en: {
     tagline: "Season 2 • Back to School", welcome_title: "Welcome to the academy", nav_contestants: "Academy", nav_rankings: "Rankings", nav_votes: "Votes",
     search_ph: "Search student...", all_status: "All status", safe: "Safe", nominee: "Red Zone", saved_judges: "Saved (Jury)", saved_public: "Saved (Public)", eliminated: "Eliminated", tbd: "TBD",
     winner: "WINNER", second: "2ND", third: "3RD", fourth: "4TH", fifth: "5TH", sixth: "6TH", seventh: "7TH",
     auto_updated: "Student files updated after:", no_contestants: "No student found.",
-    rank: "Rank", pos: "Pos", name: "Name", rankings_desc: "Class ranking trajectory. Use the dropdowns to explore past reports.",
+    rank: "Rank", pos: "Pos", name: "Name", rankings_desc: "Class ranking trajectory.",
     nominations: "Status Notice Board", nominee_lbl: "Red Zone", saved_judges_lbl: "Saved (Jury)", saved_public_lbl: "Saved (Public)", eliminated_lbl: "Eliminated",
     global_chart: "Global class evolution", perf_score: "Vocal Score", official_rank: "Official Rank",
-    back_contestants: "← Back to Board", contestant_not_found: "Student file not found.", rounds_overview: "Detailed Report Card", round: "Round", official: "Official", status: "Status",
-    performances: "Vocal Performances", song: "Song", links: "Links", link_perf: "Watch", no_links: "No records yet.",
+    back_contestants: "← Back to Board", contestant_not_found: "Student file not found.", rounds_overview: "Report Card", round: "Round", official: "Official", status: "Status",
+    performances: "Performances", song: "Song", links: "Links", link_perf: "Watch", no_links: "No records yet.",
     indiv_chart: "Student progression curve", country: "Country", pronouns: "Pronouns", instagram: "Instagram",
-    votes: "Votes", vote_now: "Support a student", no_vote_data: "Ballot box is closed for this round.", avail_vote_rounds: "Available vote rounds:", total_votes: "Total ballots:", last_refresh: "Last refresh:",
-    hl_title: "🌟 Honor Roll", hl_top3: "Top of the Class", hl_rise: "Best Progression", hl_danger: "Warning (Danger)", hl_jury: "Jury's Favorite", hl_public: "Public's Choice", hl_shock: "Highlight",
+    votes: "Votes", vote_now: "Support a student", no_vote_data: "Ballot box is closed.", avail_vote_rounds: "Available vote rounds:", total_votes: "Total ballots:", last_refresh: "Last refresh:",
     r_prerank: "Init. Eval.", r_r1: "Round 1", r_r2: "Round 2", r_r3: "Round 3", r_r4: "Round 4", r_r5: "Semi-Final", r_final: "Final",
-    opening_soon: "School is opening soon"
-  },
-  es: {
-    tagline: "Temporada 2 • Back to School", welcome_title: "Bienvenidos a la academia", nav_contestants: "Academia", nav_rankings: "Clasificaciones", nav_votes: "Votos",
-    search_ph: "Buscar estudiante...", all_status: "Todos los estados", safe: "A salvo", nominee: "Zona Roja", saved_judges: "Salvada (Jurado)", saved_public: "Salvada (Público)", eliminated: "Eliminada", tbd: "Por determinar",
-    winner: "GANADORA", second: "2DA", third: "3RA", fourth: "4TA", fifth: "5TA", sixth: "6TA", seventh: "7MA",
-    auto_updated: "Archivos de estudiantes actualizados tras:", no_contestants: "No se encontró ninguna estudiante.",
-    rank: "Rango", pos: "Pos", name: "Nombre", rankings_desc: "Trayectoria de la clasificación de la clase. Usa los menús para explorar reportes pasados.",
-    nominations: "Tablón de anuncios de estado", nominee_lbl: "Zona Roja", saved_judges_lbl: "Salvada (Jurado)", saved_public_lbl: "Salvada (Público)", eliminated_lbl: "Eliminada",
-    global_chart: "Evolución global de la clase", perf_score: "Puntuación Vocal", official_rank: "Rango Oficial",
-    back_contestants: "← Volver al Tablero", contestant_not_found: "Archivo de estudiante no encontrado.", rounds_overview: "Boletín de calificaciones detallado", round: "Ronda", official: "Oficial", status: "Estado",
-    performances: "Actuaciones Vocales", song: "Canción", links: "Enlaces", link_perf: "Ver", no_links: "Sin registros aún.",
-    indiv_chart: "Curva de progresión de la estudiante", country: "País", pronouns: "Pronombres", instagram: "Instagram",
-    votes: "Votos", vote_now: "Apoyar a una estudiante", no_vote_data: "La urna está cerrada para esta ronda.", avail_vote_rounds: "Rondas de votación disponibles:", total_votes: "Total de boletas:", last_refresh: "Última actualización:",
-    hl_title: "🌟 Cuadro de Honor", hl_top3: "Mejor de la Clase", hl_rise: "Mejor Progresión", hl_danger: "Advertencia (Peligro)", hl_jury: "Favorita del Jurado", hl_public: "Elección del Público", hl_shock: "Destacado",
-    r_prerank: "Eval. Init.", r_r1: "Ronda 1", r_r2: "Ronda 2", r_r3: "Ronda 3", r_r4: "Ronda 4", r_r5: "Semifinal", r_final: "Final",
-    opening_soon: "School is opening soon"
-  },
-  ko: {
-    tagline: "시즌 2 • Back to School", welcome_title: "아카데미에 오신 것을 환영합니다", nav_contestants: "아카데미", nav_rankings: "순위", nav_votes: "투표",
-    search_ph: "학생 검색...", all_status: "모든 상태", safe: "생존", nominee: "레드 존", saved_judges: "심사위원 구제", saved_public: "대중 구제", eliminated: "탈락", tbd: "미정",
-    winner: "우승", second: "2위", third: "3위", fourth: "4위", fifth: "5위", sixth: "6위", seventh: "7위",
-    auto_updated: "최신 공식 순위에 따라 자동 업데이트됨:", no_contestants: "학생을 찾을 수 없습니다.",
-    rank: "순위", pos: "점수 순위", name: "이름", rankings_desc: "라운드별 순위 변동입니다. 드롭다운을 사용하여 이전 라운드를 확인하세요.",
-    nominations: "후보 및 결과", nominee_lbl: "후보", saved_judges_lbl: "심사위원 구제", saved_public_lbl: "대중 구제", eliminated_lbl: "탈락",
-    global_chart: "전체 순위 변화 그래프", perf_score: "퍼포먼스 점수", official_rank: "공식 순위",
-    back_contestants: "← 목록으로 돌아가기", contestant_not_found: "참가자 정보가 없습니다.", rounds_overview: "라운드 기록", round: "라운드", official: "공식", status: "상태",
-    performances: "퍼포먼스 영상", song: "곡명", links: "링크", link_perf: "영상 보기", no_links: "아직 등록된 영상이 없습니다.",
-    indiv_chart: "개인 순위 변화 그래프", country: "국가", pronouns: "대명사", instagram: "인스타그램",
-    votes: "투표", vote_now: "지금 투표하기", no_vote_data: "이번 라운드 투표 데이터가 없습니다.", avail_vote_rounds: "투표 가능한 라운드:", total_votes: "총 투표수:", last_refresh: "최근 업데이트:",
-    hl_title: "🌟 라운드 하이라이트", hl_top3: "금주의 톱 3", hl_rise: "최고의 상승세", hl_danger: "또다시 위기", hl_jury: "심사위원의 선택", hl_public: "대중의 픽", hl_shock: "충격 / 드라마",
-    r_prerank: "사전순위", r_r1: "1라운드", r_r2: "2라운드", r_r3: "3라운드", r_r4: "4라운드", r_r5: "5라운드", r_final: "파이널",
-    opening_soon: "School is opening soon"
-  },
-  zh: {
-    tagline: "第二季 • Back to School", welcome_title: "欢迎来到学院", nav_contestants: "学院", nav_rankings: "排名", nav_votes: "投票",
-    search_ph: "搜索学生...", all_status: "所有状态", safe: "安全", nominee: "红区", saved_judges: "拯救 (评委)", saved_public: "拯救 (观众)", eliminated: "淘汰", tbd: "待定",
-    winner: "冠军", second: "第二名", third: "第三名", fourth: "第四名", fifth: "第五名", sixth: "第六名", seventh: "第七名",
-    auto_updated: "文件更新于:", no_contestants: "未找到学生。",
-    rank: "排名", pos: "位置", name: "姓名", rankings_desc: "班级排名轨迹。使用下拉菜单查看过去的报告。",
-    nominations: "状态公告板", nominee_lbl: "红区", saved_judges_lbl: "拯救 (评委)", saved_public_lbl: "拯救 (观众)", eliminated_lbl: "淘汰",
-    global_chart: "全班排名走势", perf_score: "声乐得分", official_rank: "官方排名",
-    back_contestants: "← 返回公告板", contestant_not_found: "未找到该学生档案。", rounds_overview: "详细成绩单", round: "轮次", official: "官方", status: "状态",
-    performances: "表演", song: "歌曲", links: "链接", link_perf: "观看", no_links: "暂无记录。",
-    indiv_chart: "学生进步曲线", country: "国家", pronouns: "代词", instagram: "Instagram",
-    votes: "投票", vote_now: "支持学生", no_vote_data: "本轮投票箱已关闭。", avail_vote_rounds: "可投票轮次:", total_votes: "总票数:", last_refresh: "最后更新:",
-    hl_title: "🌟 荣誉榜", hl_top3: "第一名", hl_rise: "最大进步", hl_danger: "警告 (危险)", hl_jury: "评委最爱", hl_public: "观众选择", hl_shock: "亮点",
-    r_prerank: "初步评估", r_r1: "第一轮", r_r2: "第二轮", r_r3: "第三轮", r_r4: "第四轮", r_r5: "半决赛", r_final: "决赛",
-    opening_soon: "School is opening soon"
-  },
-  ja: {
-    tagline: "シーズン 2 • Back to School", welcome_title: "アカデミーへようこそ", nav_contestants: "アカデミー", nav_rankings: "ランキング", nav_votes: "投票",
-    search_ph: "学生を検索...", all_status: "すべてのステータス", safe: "セーフ", nominee: "レッドゾーン", saved_judges: "救済 (審査員)", saved_public: "救済 (視聴者)", eliminated: "脱落", tbd: "未定",
-    winner: "優勝", second: "2位", third: "3位", fourth: "4位", fifth: "5位", sixth: "6位", seventh: "7位",
-    auto_updated: "更新日:", no_contestants: "学生が見つかりません。",
-    rank: "順位", pos: "位置", name: "名前", rankings_desc: "クラス順位の推移。過去のレポートを見るにはメニューを使用してください。",
-    nominations: "ステータス掲示板", nominee_lbl: "レッドゾーン", saved_judges_lbl: "救済 (審査員)", saved_public_lbl: "救済 (視聴者)", eliminated_lbl: "脱落",
-    global_chart: "クラス全体の推移", perf_score: "ボーカルスコア", official_rank: "公式順位",
-    back_contestants: "← 掲示板に戻る", contestant_not_found: "学生ファイルが見つかりません。", rounds_overview: "成績表", round: "ラウンド", official: "公式", status: "ステータス",
-    performances: "パフォーマンス", song: "曲", links: "リンク", link_perf: "見る", no_links: "記録なし",
-    indiv_chart: "学生の成長曲線", country: "国", pronouns: "代名詞", instagram: "Instagram",
-    votes: "投票", vote_now: "学生を応援する", no_vote_data: "このラウンドの投票箱は閉じています。", avail_vote_rounds: "投票可能なラウンド:", total_votes: "총 투표수:", last_refresh: "最終更新:",
-    hl_title: "🌟 名誉の殿堂", hl_top3: "首席", hl_rise: "最大の成長", hl_danger: "警告 (危険)", hl_jury: "審査員のお気に入り", hl_public: "視聴者の選択", hl_shock: "ハイライト",
-    r_prerank: "初期評価", r_r1: "ラウンド 1", r_r2: "ラウンド 2", r_r3: "ラウンド 3", r_r4: "ラウンド 4", r_r5: "準決勝", r_final: "決勝",
-    opening_soon: "School is opening soon"
+    opening_soon: "Academy is preparing..."
   }
 };
+I18N.es = I18N.en; I18N.ko = I18N.en; I18N.zh = I18N.en; I18N.ja = I18N.en;
 
 let currentLang = localStorage.getItem('kca_lang') || 'fr';
 function t(key) { return I18N[currentLang][key] || key; }
 
 // ==========================================
-// 2. CONFIGURATION & CONSTANTES
+// 2. CONFIGURATION & CONSTANTES (AVEC TON ID OFFICIEL)
 // ==========================================
 const CONFIG = {
- SHEET_ID: "1EMn0h_u7FCHsVD4kINv1Y_LDzCoHR0iFRsPtXdGlDEs",
+ SHEET_ID: "1EMn0h_u7FCHsVD4kINv1Y_LDzCoHR0iFRsPtXdGlDEs", 
  VOTE_SHEET_ID: "1thS50JjY1ElXjvZIPm0lpEtD2CnVyo-iw33qB-efPH0",
- SHEETS: { 
-   contestants: "contestants", rounds: "rounds", submissions: "submissions", 
-   scores: "scores", judge_rankings: "judge_rankings", round_status: "round_status", 
-   votes_live: "votes_live" 
- },
  ROUND_TABS: { PRERANK: "PRERANK", ROUND_1: "R1", ROUND_2: "R2", ROUND_3: "R3", ROUND_4: "R4", ROUND_5: "R5", FINAL: "R6" },
  VOTE_FORM_URL: "https://forms.gle/63aiEEd9ioR8juBL9",
  REFRESH_MS: 30000
@@ -372,9 +302,8 @@ const ROUND_ORDER = ["PRERANK", "ROUND_1", "ROUND_2", "ROUND_3", "ROUND_4", "ROU
 const JUDGE_NAMES = ["Neitsu", "Hauras", "Heaven", "Kaina", "Aqua", "Aya"];
 
 // ==========================================
-// 4. FONCTIONS PRINCIPALES (PARSEUR)
+// 4. FONCTIONS PRINCIPALES (MOTEUR BLINDÉ)
 // ==========================================
-
 function setLang(lang) {
  currentLang = lang; localStorage.setItem('kca_lang', lang);
  document.getElementById('brandTagline').textContent = t('tagline');
@@ -415,7 +344,6 @@ function colorForIndex(i) { const hue = (i * 47) % 360; return `hsl(${hue} 40% 5
 function handleImageFallback(img) {
  const step = Number(img.dataset.fallbackStep || '0');
  const contestantId = String(img.dataset.contestantId || '').trim();
- 
  if (step === 0 && contestantId) {
      img.dataset.fallbackStep = '1';
      img.src = `assets/${contestantId}.jpg`;
@@ -425,62 +353,72 @@ function handleImageFallback(img) {
  img.src = 'https://images.unsplash.com/photo-1517841905240-472988babdf9?ixlib=rb-1.2.1&auto=format&fit=crop&w=300&q=80'; 
 }
 
-// 🛡️ SYSTÈME FETCH ULTRA BLINDÉ ANTI-CACHE
+// 🛡️ MOTEUR CSV BRUT - Résout le problème des colonnes vides supprimées par Google
+function parseCSV(text) {
+  const rows = [];
+  let row = [];
+  let inQuotes = false;
+  let val = "";
+  for (let i = 0; i < text.length; i++) {
+    const char = text[i];
+    if (inQuotes) {
+      if (char === '"') {
+        if (text[i + 1] === '"') { val += '"'; i++; } else { inQuotes = false; }
+      } else { val += char; }
+    } else {
+      if (char === '"') { inQuotes = true; }
+      else if (char === ',') { row.push(val); val = ""; }
+      else if (char === '\n' || char === '\r') {
+        row.push(val); rows.push(row); row = []; val = "";
+        if (char === '\r' && text[i + 1] === '\n') i++;
+      } else { val += char; }
+    }
+  }
+  if (val !== "" || row.length > 0) { row.push(val); rows.push(row); }
+  
+  if (rows.length < 1) return [];
+  
+  let headerIndex = 0;
+  for(let i=0; i<Math.min(5, rows.length); i++){
+     if(rows[i].some(c => typeof c === 'string' && ['contestant', 'name', 'candidat', 'eleve', 'username'].some(k => c.toLowerCase().includes(k)))) {
+         headerIndex = i;
+         break;
+     }
+  }
+  
+  const headers = rows[headerIndex].map(h => String(h).trim().toLowerCase());
+  return rows.slice(headerIndex + 1).map(r => {
+    const obj = {};
+    headers.forEach((h, i) => { if(h) obj[h] = r[i] !== undefined ? String(r[i]).trim() : ''; });
+    return obj;
+  });
+}
+
 async function fetchSheetTab(sheetName, customSheetId = null) {
  const targetId = customSheetId || CONFIG.SHEET_ID;
  if (!targetId) return []; 
  
  const tryFetch = async (name) => {
-   // Le _cacheBuster contourne les problèmes de mise à jour de Google Sheets
-   const url = `https://docs.google.com/spreadsheets/d/${targetId}/gviz/tq?sheet=${encodeURIComponent(name)}&tqx=out:json&tq=${encodeURIComponent('select * offset 0')}&_cacheBuster=${Date.now()}`;
+   const url = `https://docs.google.com/spreadsheets/d/${targetId}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(name)}&_=${Date.now()}`;
    try {
      const response = await fetch(url);
+     if (!response.ok) return null;
      const txt = await response.text();
-     const m = txt.match(/google\.visualization\.Query\.setResponse\((.*)\);/s);
-     if (!m) return null; 
-     const json = JSON.parse(m[1]);
-     if(json.status === 'error') return null;
-     return json;
+     if (txt.toLowerCase().includes('<!doctype html>')) return null;
+     return parseCSV(txt);
    } catch (e) { return null; }
  };
 
- let json = await tryFetch(sheetName);
- if (!json) json = await tryFetch(sheetName.toLowerCase());
- if (!json) json = await tryFetch(sheetName + ' ');
- if (!json && sheetName.match(/^R\d$/)) {
+ let data = await tryFetch(sheetName);
+ if (!data) data = await tryFetch(sheetName.toLowerCase());
+ if (!data) data = await tryFetch(sheetName + ' ');
+ if (!data && sheetName.match(/^R\d$/)) {
      const num = sheetName.replace('R', '');
-     json = await tryFetch(`Round ${num}`) || await tryFetch(`Round_${num}`) || await tryFetch(`ROUND ${num}`) || await tryFetch(`R${num} `);
+     data = await tryFetch(`Round ${num}`) || await tryFetch(`Round_${num}`) || await tryFetch(`ROUND ${num}`) || await tryFetch(`R${num} `);
  }
- if (!json && sheetName === 'R6') json = await tryFetch('FINAL') || await tryFetch('Finale') || await tryFetch('FINALE');
+ if (!data && sheetName === 'R6') data = await tryFetch('FINAL') || await tryFetch('Finale') || await tryFetch('FINALE');
  
- if (!json) return [];
- 
- let rows = json.table.rows || [];
- if(rows.length === 0) return [];
- 
- let cols = (json.table.cols || []).map(c => c ? (c.label || c.id || '') : '');
- 
- let headerIndex = -1;
- for (let i = 0; i < Math.min(5, rows.length); i++) {
-     if (rows[i] && rows[i].c && rows[i].c.some(cell => cell && typeof cell.v === 'string' && 
-         ['contestant', 'name', 'candidat', 'eleve', 'username'].some(k => cell.v.toLowerCase().includes(k)))) {
-         headerIndex = i;
-         break;
-     }
- }
- 
- if (headerIndex >= 0) {
-     cols = rows[headerIndex].c.map((cell, i) => cell && cell.v ? String(cell.v) : cols[i]);
-     rows = rows.slice(headerIndex + 1);
- }
- 
- return rows.map(r => {
-     const rowObj = {};
-     cols.forEach((colName, i) => { 
-         rowObj[colName] = (r && r.c && r.c[i] && r.c[i].v !== null) ? r.c[i].v : ''; 
-     });
-     return rowObj;
- });
+ return data || [];
 }
 
 async function fetchOptionalSheetTab(sheetName, customSheetId = null) { return await fetchSheetTab(sheetName, customSheetId); }
@@ -518,7 +456,7 @@ async function loadDataFromRoundTabs() {
  const group_song = String(pickValue(row, ['performance2', 'performance 2']) || '').trim();
  const link = String(pickValue(row, ['link', 'performance_link', 'youtube_url', 'url', 'linktotheperformance', 'linktotheperformance1']) || '').trim();
  const link2 = String(pickValue(row, ['link2', 'linktotheperformance2']) || '').trim();
- const officialRank = parseNum(pickValue(row, ['official_rank', 'rank', 'official ranking', 'classement']));
+ const officialRank = parseNum(pickValue(row, ['official_rank', 'rank', 'official ranking', 'classement', 'officialrank']));
  const perfScore = parseNum(pickValue(row, ['performance_score', 'score', 'creator_score', 'total', 'note', 'points', 'eval']));
  
  const statusValueRaw = String(pickValue(row, ['status', 'statut', 'etat', 'resultat']) || '').trim().toLowerCase();
@@ -553,6 +491,7 @@ async function loadDataFromRoundTabs() {
  });
  });
 
+ // Propage l'élimination aux rounds suivants
  const allIds = [...contestantsMap.keys()];
  let lastStatusObj = {};
  ROUND_ORDER.forEach(round => {
@@ -617,16 +556,15 @@ function getStatus(roundId, contestantId) { return state.data.round_status.find(
 function statusClass(status) { return status || 'tbd'; }
 function statusLabel(status) { return status ? t(status) : t('tbd'); }
 
-// 🔧 FIX MAJEUR: Les rangs se calculent automatiquement même si tu as déjà écrit le rang des éliminées !
 function getOfficialRankingByRound() {
  const out = Object.fromEntries(ROUND_ORDER.map(r => [r, {}]));
  
- // 1. On charge les rangs que tu as tapés à la main dans le fichier (ex: les éliminées 27, 28, 29...)
+ // Les rangs manuels (ex: 27, 28)
  state.data.judge_rankings.filter(r => normalizeJudgeName(r.judge_name) === 'official').forEach(r => { 
      if (Number.isFinite(r.rank)) out[r.round_id][r.contestant_id] = r.rank; 
  });
  
- // 2. On calcule AUTOMATIQUEMENT le rang des élèves restantes (1, 2, 3...) en fonction de leurs scores
+ // Les rangs automatiques basés sur le score
  ROUND_ORDER.forEach(round => {
    const scoredCandidates = state.data.scores
        .filter(s => s.round_id === round && Number.isFinite(s.total) && !Number.isFinite(out[round][s.contestant_id]))
@@ -674,7 +612,7 @@ function getLatestRound() {
    const hasData = state.data.judge_rankings.some(r => r.round_id === round) ||
                    state.data.scores.some(r => r.round_id === round) ||
                    state.data.round_status.some(r => r.round_id === round && r.status !== 'eliminated') ||
-                   state.data.submissions.some(r => r.round_id === round);
+                   state.data.submissions.some(r => r.round_id === round && (r.song_title || r.youtube_url));
    if (hasData) return round;
  }
  return 'PRERANK';
@@ -742,7 +680,7 @@ function renderContestants() {
  });
 
  if (list.length === 0) {
- document.getElementById('contestantsGrid').innerHTML = `<p class="small">Aucune élève trouvée. Vérifie ton fichier Sheets !</p>`;
+ document.getElementById('contestantsGrid').innerHTML = `<p class="small">Aucune élève trouvée.</p>`;
  } else {
  document.getElementById('contestantsGrid').innerHTML = list.map((c, index) => {
  const status = getStatus(state.latestRound, c.id);
