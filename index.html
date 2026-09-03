@@ -302,17 +302,17 @@ const I18N = {
   ko: {
     tagline: "시즌 2 • Back to School", welcome_title: "아카데미에 오신 것을 환영합니다", nav_contestants: "아카데미", nav_rankings: "순위", nav_votes: "투표",
     search_ph: "학생 검색...", all_status: "모든 상태", safe: "생존", nominee: "레드 존", saved_judges: "심사위원 구제", saved_public: "대중 구제", eliminated: "탈락", tbd: "미정",
-    winner: "우승자", second: "2위", third: "3위", fourth: "4위", fifth: "5위", sixth: "6위", seventh: "7위",
-    auto_updated: "최신 공식 순위에 따른 자동 업데이트:", no_contestants: "학생을 찾을 수 없습니다.",
-    rank: "순위", pos: "위치", name: "이름", rankings_desc: "학급 순위 변동 추이. 드롭다운을 사용하여 지난 라운드를 확인하세요.",
-    nominations: "상태 공지판", nominee_lbl: "레드 존", saved_judges_lbl: "심사위원 구제", saved_public_lbl: "대중 구제", eliminated_lbl: "탈락",
-    global_chart: "전체 학급 진화", perf_score: "보컬 점수", official_rank: "공식 순위",
-    back_contestants: "← 강의실로 돌아가기", contestant_not_found: "학생 파일을 찾을 수 없습니다.", rounds_overview: "성적표", round: "라운드", official: "공식", status: "상태",
-    performances: "공연", song: "노래", links: "링크", link_perf: "보기", no_links: "아직 기록이 없습니다.",
-    indiv_chart: "학생 진화 차트", country: "국가", pronouns: "대명사", instagram: "인스타그램",
-    votes: "투표", vote_now: "학생 응원하기", no_vote_data: "이 라운드의 투표함은 닫혔습니다.", avail_vote_rounds: "투표 가능한 라운드:", total_votes: "총 투표수:", last_refresh: "최근 새로고침:",
-    hl_title: "🌟 우수 학생 명단", hl_top3: "수석", hl_rise: "최고의 발전", hl_danger: "경고 (위험)", hl_jury: "심사위원의 선택", hl_public: "대중의 선택", hl_shock: "하이라이트",
-    r_prerank: "초기 평가", r_r1: "라운드 1", r_r2: "라운드 2", r_r3: "라운드 3", r_r4: "라운드 4", r_r5: "준결승", r_final: "결승",
+    winner: "우승", second: "2위", third: "3위", fourth: "4위", fifth: "5위", sixth: "6위", seventh: "7위",
+    auto_updated: "최신 공식 순위에 따라 자동 업데이트됨:", no_contestants: "학생을 찾을 수 없습니다.",
+    rank: "순위", pos: "점수 순위", name: "이름", rankings_desc: "라운드별 순위 변동입니다. 드롭다운을 사용하여 이전 라운드를 확인하세요.",
+    nominations: "후보 및 결과", nominee_lbl: "후보", saved_judges_lbl: "심사위원 구제", saved_public_lbl: "대중 구제", eliminated_lbl: "탈락",
+    global_chart: "전체 순위 변화 그래프", perf_score: "퍼포먼스 점수", official_rank: "공식 순위",
+    back_contestants: "← 목록으로 돌아가기", contestant_not_found: "참가자 정보가 없습니다.", rounds_overview: "라운드 기록", round: "라운드", official: "공식", status: "상태",
+    performances: "퍼포먼스 영상", song: "곡명", links: "링크", link_perf: "영상 보기", no_links: "아직 등록된 영상이 없습니다.",
+    indiv_chart: "개인 순위 변화 그래프", country: "국가", pronouns: "대명사", instagram: "인스타그램",
+    votes: "투표", vote_now: "지금 투표하기", no_vote_data: "이번 라운드 투표 데이터가 없습니다.", avail_vote_rounds: "투표 가능한 라운드:", total_votes: "총 투표수:", last_refresh: "최근 업데이트:",
+    hl_title: "🌟 라운드 하이라이트", hl_top3: "금주의 톱 3", hl_rise: "최고의 상승세", hl_danger: "또다시 위기", hl_jury: "심사위원의 선택", hl_public: "대중의 픽", hl_shock: "충격 / 드라마",
+    r_prerank: "사전순위", r_r1: "1라운드", r_r2: "2라운드", r_r3: "3라운드", r_r4: "4라운드", r_r5: "5라운드", r_final: "파이널",
     opening_soon: "School is opening soon"
   },
   zh: {
@@ -370,7 +370,6 @@ const CONFIG = {
 
 const ROUND_ORDER = ["PRERANK", "ROUND_1", "ROUND_2", "ROUND_3", "ROUND_4", "ROUND_5", "FINAL"];
 const JUDGE_NAMES = ["Neitsu", "Hauras", "Heaven", "Kaina", "Aqua", "Aya"];
-const FIXED_ELIMINATED_RANKS = {};
 
 // ==========================================
 // 4. FONCTIONS PRINCIPALES (PARSEUR)
@@ -426,13 +425,14 @@ function handleImageFallback(img) {
  img.src = 'https://images.unsplash.com/photo-1517841905240-472988babdf9?ixlib=rb-1.2.1&auto=format&fit=crop&w=300&q=80'; 
 }
 
-// 🛡️ SYSTÈME FETCH BLINDÉ POUR GÉRER TOUS LES NOMS D'ONGLETS
+// 🛡️ SYSTÈME FETCH ULTRA BLINDÉ ANTI-CACHE
 async function fetchSheetTab(sheetName, customSheetId = null) {
  const targetId = customSheetId || CONFIG.SHEET_ID;
  if (!targetId) return []; 
  
  const tryFetch = async (name) => {
-   const url = `https://docs.google.com/spreadsheets/d/${targetId}/gviz/tq?sheet=${encodeURIComponent(name)}&tqx=out:json&_=${Date.now()}`;
+   // Le _cacheBuster contourne les problèmes de mise à jour de Google Sheets
+   const url = `https://docs.google.com/spreadsheets/d/${targetId}/gviz/tq?sheet=${encodeURIComponent(name)}&tqx=out:json&tq=${encodeURIComponent('select * offset 0')}&_cacheBuster=${Date.now()}`;
    try {
      const response = await fetch(url);
      const txt = await response.text();
@@ -444,7 +444,6 @@ async function fetchSheetTab(sheetName, customSheetId = null) {
    } catch (e) { return null; }
  };
 
- // L'algorithme teste plusieurs variantes du nom au cas où (espaces, majuscules...)
  let json = await tryFetch(sheetName);
  if (!json) json = await tryFetch(sheetName.toLowerCase());
  if (!json) json = await tryFetch(sheetName + ' ');
@@ -461,7 +460,6 @@ async function fetchSheetTab(sheetName, customSheetId = null) {
  
  let cols = (json.table.cols || []).map(c => c ? (c.label || c.id || '') : '');
  
- // Détection intelligente de l'en-tête (cherche dans les 5 premières lignes)
  let headerIndex = -1;
  for (let i = 0; i < Math.min(5, rows.length); i++) {
      if (rows[i] && rows[i].c && rows[i].c.some(cell => cell && typeof cell.v === 'string' && 
@@ -497,7 +495,7 @@ function pickValue(row, aliases) {
 }
 function parseNum(val) {
  if (val === '' || val === null || val === undefined) return NaN;
- const num = Number(String(val).replace(',', '.'));
+ const num = Number(String(val).replace(/\s/g, '').replace(',', '.'));
  return isNaN(num) ? NaN : num;
 }
 
@@ -555,7 +553,6 @@ async function loadDataFromRoundTabs() {
  });
  });
 
- // Mémoire automatique des éliminées pour éviter de tout retaper
  const allIds = [...contestantsMap.keys()];
  let lastStatusObj = {};
  ROUND_ORDER.forEach(round => {
@@ -620,13 +617,25 @@ function getStatus(roundId, contestantId) { return state.data.round_status.find(
 function statusClass(status) { return status || 'tbd'; }
 function statusLabel(status) { return status ? t(status) : t('tbd'); }
 
+// 🔧 FIX MAJEUR: Les rangs se calculent automatiquement même si tu as déjà écrit le rang des éliminées !
 function getOfficialRankingByRound() {
  const out = Object.fromEntries(ROUND_ORDER.map(r => [r, {}]));
- state.data.judge_rankings.filter(r => normalizeJudgeName(r.judge_name) === 'official').forEach(r => { if (Number.isFinite(r.rank)) out[r.round_id][r.contestant_id] = r.rank; });
+ 
+ // 1. On charge les rangs que tu as tapés à la main dans le fichier (ex: les éliminées 27, 28, 29...)
+ state.data.judge_rankings.filter(r => normalizeJudgeName(r.judge_name) === 'official').forEach(r => { 
+     if (Number.isFinite(r.rank)) out[r.round_id][r.contestant_id] = r.rank; 
+ });
+ 
+ // 2. On calcule AUTOMATIQUEMENT le rang des élèves restantes (1, 2, 3...) en fonction de leurs scores
  ROUND_ORDER.forEach(round => {
- if (Object.keys(out[round]).length) return;
- const list = state.data.scores.filter(s => s.round_id === round && Number.isFinite(s.total)).sort((a, b) => b.total - a.total);
- list.forEach((s, i) => out[round][s.contestant_id] = i + 1);
+   const scoredCandidates = state.data.scores
+       .filter(s => s.round_id === round && Number.isFinite(s.total) && !Number.isFinite(out[round][s.contestant_id]))
+       .sort((a, b) => b.total - a.total);
+       
+   let autoRank = 1;
+   scoredCandidates.forEach((s) => {
+       out[round][s.contestant_id] = autoRank++;
+   });
  });
  return out;
 }
@@ -659,11 +668,9 @@ function getRankingMapByView(view) {
  return getOfficialRankingByRound();
 }
 
-// 🛡️ DÉTECTEUR DE ROUND CORRIGÉ ET ULTRA-PERMISSIF
 function getLatestRound() {
  for (let i = ROUND_ORDER.length - 1; i >= 0; i--) {
    const round = ROUND_ORDER[i];
-   // Si le script a capté la MOINDRE ligne de score ou de statut dans ce round, il l'active.
    const hasData = state.data.judge_rankings.some(r => r.round_id === round) ||
                    state.data.scores.some(r => r.round_id === round) ||
                    state.data.round_status.some(r => r.round_id === round && r.status !== 'eliminated') ||
@@ -757,7 +764,7 @@ function renderContestants() {
      }
  });
  
- const scoreDisplay = hasData ? totalPoints : 'N/A';
+ const scoreDisplay = hasData ? totalPoints.toFixed(1).replace(/\.0$/, '') : 'N/A';
  
  let eliteClass = '';
  if (rank === 1) eliteClass = 'top1-card';
@@ -828,7 +835,6 @@ function renderRankings() {
  <h2>${t('nav_rankings')}</h2>
  <div class="filters">
  <select id="rankingViewSelect">${viewOptions.map(o => `<option value="${o.value}" ${o.value===state.rankingView?'selected':''}>${o.label}</option>`).join('')}</select>
- <!-- 🔓 MENU DÉBLOQUÉ : Affiche tous les rounds pour ne plus jamais bloquer l'utilisateur -->
  <select id="rankingsRoundSelect">
  ${ROUND_ORDER.map(r => `<option value="${r}" ${r === activeRound ? 'selected' : ''}>${getRoundLabel(r)}</option>`).join('')}
  </select>
@@ -1041,7 +1047,6 @@ function renderVotes() {
  <div class="card-paper">
  <h2>${t('nav_votes')}</h2>
  <div class="filters">
- <!-- 🔓 MENU DÉBLOQUÉ -->
  <select id="votesRoundSelect">${ROUND_ORDER.map(r => `<option value="${r}" ${r===state.votesRound?'selected':''}>${getRoundLabel(r)}</option>`).join('')}</select>
  ${CONFIG.VOTE_FORM_URL ? `<a class="btn" target="_blank" rel="noopener noreferrer" href="${CONFIG.VOTE_FORM_URL}">${t('vote_now')}</a>` : ''}
  </div>
