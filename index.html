@@ -301,7 +301,7 @@ const JUDGE_NAMES = ["Neitsu", "Hauras", "Heaven", "Kaina", "Aqua", "Aya"];
 const EXCLUDED_NAMES = new Set(['official_rank', 'score', 'neitsu', 'hauras', 'heaven', 'kaina', 'aqua', 'aya', 'statut', 'performance_1', 'link_to_the_performance_1', 'performance_2', 'link_to_the_performance_2', 'contestants', 'contestant', 'username', 'country', 'pronouns', 'instagram']);
 
 // ==========================================
-// 3. MOTEUR DE LECTURE ROBUSTE
+// 3. MOTEUR DE LECTURE ULTRA-ROBUSTE (CSV EXPORT)
 // ==========================================
 function setLang(lang) {
  currentLang = lang; localStorage.setItem('kca_lang', lang);
@@ -359,51 +359,73 @@ function handleImageFallback(img) {
  img.src = 'https://images.unsplash.com/photo-1517841905240-472988babdf9?ixlib=rb-1.2.1&auto=format&fit=crop&w=300&q=80'; 
 }
 
+function parseCSV(text) {
+  const rows = [];
+  let row = [];
+  let inQuotes = false;
+  let val = "";
+  for (let i = 0; i < text.length; i++) {
+    const char = text[i];
+    if (inQuotes) {
+      if (char === '"') {
+        if (text[i + 1] === '"') { val += '"'; i++; } else { inQuotes = false; }
+      } else { val += char; }
+    } else {
+      if (char === '"') { inQuotes = true; }
+      else if (char === ',') { row.push(val); val = ""; }
+      else if (char === '\n' || char === '\r') {
+        row.push(val); rows.push(row); row = []; val = "";
+        if (char === '\r' && text[i + 1] === '\n') i++;
+      } else { val += char; }
+    }
+  }
+  if (val !== "" || row.length > 0) { row.push(val); rows.push(row); }
+  if (rows.length < 1) return [];
+  
+  let headerIndex = 0;
+  for(let i=0; i<Math.min(5, rows.length); i++){
+     if(rows[i].some(c => typeof c === 'string' && ['contestant', 'name', 'candidat', 'eleve', 'username'].some(k => c.toLowerCase().includes(k)))) {
+         headerIndex = i;
+         break;
+     }
+  }
+  
+  const headers = rows[headerIndex].map(h => String(h).trim().toLowerCase());
+  return rows.slice(headerIndex + 1).map(r => {
+    const obj = {};
+    headers.forEach((h, i) => { if(h) obj[h] = r[i] !== undefined ? String(r[i]).trim() : ''; });
+    return obj;
+  });
+}
+
 async function fetchSheetTab(sheetName, customSheetId = null) {
  const targetId = customSheetId || CONFIG.SHEET_ID;
  if (!targetId) return []; 
  
- const sheetParam = sheetName ? `&sheet=${encodeURIComponent(sheetName)}` : '';
- const url = `https://docs.google.com/spreadsheets/d/${targetId}/gviz/tq?tqx=out:json${sheetParam}&_=${Date.now()}`;
- 
- try {
+ const tryFetch = async (name) => {
+   const url = `https://docs.google.com/spreadsheets/d/${targetId}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(name)}&_=${Date.now()}`;
+   try {
      const response = await fetch(url);
+     if (!response.ok) return null;
      const txt = await response.text();
-     const m = txt.match(/google\.visualization\.Query\.setResponse\((.*)\);/s);
-     if (!m) return []; 
-     const json = JSON.parse(m[1]);
-     if (json.status === 'error') return [];
-     
-     const rows = json.table.rows || [];
-     if (rows.length === 0) return [];
-     
-     let cols = (json.table.cols || []).map(c => c ? (c.label || c.id || '') : '');
-     
-     let headerIndex = -1;
-     for (let i = 0; i < Math.min(5, rows.length); i++) {
-         if (rows[i] && rows[i].c && rows[i].c.some(cell => cell && typeof cell.v === 'string' && 
-             ['contestant', 'name', 'candidat'].some(k => cell.v.toLowerCase().includes(k)))) {
-             headerIndex = i;
-             break;
-         }
-     }
-     
-     let dataRows = rows;
-     if (headerIndex >= 0) {
-         cols = rows[headerIndex].c.map((cell, i) => cell && cell.v !== null ? String(cell.v) : cols[i]);
-         dataRows = rows.slice(headerIndex + 1);
-     }
-     
-     return dataRows.map(r => {
-         const rowObj = {};
-         cols.forEach((colName, i) => { 
-             rowObj[colName] = (r && r.c && r.c[i] && r.c[i].v !== null && r.c[i].v !== undefined) ? r.c[i].v : ''; 
-         });
-         return rowObj;
-     });
- } catch (e) { return []; }
+     if (txt.toLowerCase().includes('<!doctype html>')) return null;
+     return parseCSV(txt);
+   } catch (e) { return null; }
+ };
+
+ let data = await tryFetch(sheetName);
+ if (!data) data = await tryFetch(sheetName.toLowerCase());
+ if (!data) data = await tryFetch(sheetName + ' ');
+ if (!data && sheetName.match(/^R\d$/)) {
+     const num = sheetName.replace('R', '');
+     data = await tryFetch(`Round ${num}`) || await tryFetch(`Round_${num}`) || await tryFetch(`ROUND ${num}`) || await tryFetch(`R${num} `);
+ }
+ if (!data && sheetName === 'R6') data = await tryFetch('FINAL') || await tryFetch('Finale') || await tryFetch('FINALE');
+ 
+ return data || [];
 }
 
+async function fetchOptionalSheetTab(sheetName, customSheetId = null) { return await fetchSheetTab(sheetName, customSheetId); }
 function keyNorm(k) { return String(k || '').toLowerCase().replace(/[^a-z0-9]/g, ''); }
 function pickValue(row, aliases) {
  const keys = Object.keys(row);
@@ -423,7 +445,7 @@ function parseNum(val) {
 async function loadDataFromRoundTabs() {
  const rowsByRound = {};
  for (const [rid, tab] of Object.entries(CONFIG.ROUND_TABS)) { 
-   rowsByRound[rid] = await fetchSheetTab(tab); 
+   rowsByRound[rid] = await fetchOptionalSheetTab(tab); 
  }
  
  const contestantsMap = new Map();
@@ -481,7 +503,6 @@ async function loadDataFromRoundTabs() {
    });
  });
 
- // Propagation automatique des éliminations aux rounds suivants
  const allIds = [...contestantsMap.keys()];
  let lastStatusObj = {};
  ROUND_ORDER.forEach(round => {
@@ -591,14 +612,13 @@ function getRankingMapByView(view) {
  return getOfficialRankingByRound();
 }
 
-// 🔧 CORRECTION CLÉ : Détecte le round dès qu'il y a un statut (même sans score)
+// 🔧 CORRECTION TOTALE : Détecte le round dès qu'il y a des notes, des rangs, des statuts OU des perfs !
 function getLatestRound() {
  for (let i = ROUND_ORDER.length - 1; i >= 0; i--) {
    const round = ROUND_ORDER[i];
    const hasScores = state.data.scores.some(r => r.round_id === round && Number.isFinite(r.total));
    const hasOfficialRanks = state.data.judge_rankings.some(r => r.round_id === round && normalizeJudgeName(r.judge_name) === 'official');
    const hasJudgeRanks = state.data.judge_rankings.some(r => r.round_id === round && Number.isFinite(r.rank));
-   // On vérifie s'il y a le moindre statut renseigné (safe, nominee, eliminated...)
    const hasAnyStatus = state.data.round_status.some(r => r.round_id === round && r.status !== '');
    const hasPerfs = state.data.submissions.some(r => r.round_id === round && (r.song_title || r.youtube_url));
    
@@ -630,7 +650,6 @@ function sortedContestants() {
      if (Number.isFinite(ar)) return -1;
      if (Number.isFinite(br)) return 1;
    }
-   // Tri alphabétique par défaut si pas de scores/rangs officiels saisis
    return String(a.name || '').localeCompare(String(b.name || ''));
  });
 }
