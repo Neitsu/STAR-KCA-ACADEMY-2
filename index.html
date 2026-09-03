@@ -301,7 +301,7 @@ const JUDGE_NAMES = ["Neitsu", "Hauras", "Heaven", "Kaina", "Aqua", "Aya"];
 const EXCLUDED_NAMES = new Set(['official_rank', 'score', 'neitsu', 'hauras', 'heaven', 'kaina', 'aqua', 'aya', 'statut', 'performance_1', 'link_to_the_performance_1', 'performance_2', 'link_to_the_performance_2', 'contestants', 'contestant', 'username', 'country', 'pronouns', 'instagram']);
 
 // ==========================================
-// 3. MOTEUR DE LECTURE ULTRA-ROBUSTE (CSV EXPORT)
+// 3. MOTEUR DE LECTURE CORRIGÉ (SANS PROPAGATION Fausse)
 // ==========================================
 function setLang(lang) {
  currentLang = lang; localStorage.setItem('kca_lang', lang);
@@ -503,21 +503,6 @@ async function loadDataFromRoundTabs() {
    });
  });
 
- const allIds = [...contestantsMap.keys()];
- let lastStatusObj = {};
- ROUND_ORDER.forEach(round => {
-     allIds.forEach(id => {
-         const existingIndex = round_status_clean.findIndex(r => r.round_id === round && r.contestant_id === id);
-         if (existingIndex >= 0) {
-             lastStatusObj[id] = round_status_clean[existingIndex].status;
-         } else {
-             if (lastStatusObj[id] === 'eliminated') {
-                 round_status_clean.push({ round_id: round, contestant_id: id, status: 'eliminated' });
-             }
-         }
-     });
- });
-
  return { contestants: [...contestantsMap.values()], rounds: [], submissions, scores, judge_rankings, round_status: round_status_clean, votes_live: [] };
 }
 
@@ -612,7 +597,7 @@ function getRankingMapByView(view) {
  return getOfficialRankingByRound();
 }
 
-// 🔧 CORRECTION TOTALE : Détecte le round dès qu'il y a des notes, des rangs, des statuts OU des perfs !
+// 🔧 DÉTECTION STRICTE : Un round n'est actif que si des données réelles y sont présentes
 function getLatestRound() {
  for (let i = ROUND_ORDER.length - 1; i >= 0; i--) {
    const round = ROUND_ORDER[i];
