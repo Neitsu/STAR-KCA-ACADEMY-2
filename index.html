@@ -286,7 +286,7 @@ let currentLang = localStorage.getItem('kca_lang') || 'fr';
 function t(key) { return I18N[currentLang][key] || key; }
 
 // ==========================================
-// 2. CONFIGURATION DU CLASSEUR OFFICIEL
+// 2. CONFIGURATION AVEC LE NOUVEAU SHEETS ID
 // ==========================================
 const CONFIG = {
  SHEET_ID: "1MG4wlEm5XADSGALQdV9uBO_zF77D1AZx_DqJ5XXmGME",
@@ -298,7 +298,7 @@ const CONFIG = {
 
 const ROUND_ORDER = ["PRERANK", "ROUND_1", "ROUND_2", "ROUND_3", "ROUND_4", "ROUND_5", "FINAL"];
 const JUDGE_NAMES = ["Neitsu", "Hauras", "Heaven", "Kaina", "Aqua", "Aya"];
-const EXCLUDED_NAMES = new Set(['official_rank', 'score', 'neitsu', 'hauras', 'heaven', 'kaina', 'aqua', 'aya', 'statut', 'performance_1', 'link_to_the_performance_1', 'performance_2', 'link_to_the_performance_2', 'contestants', 'contestant', 'username', 'country', 'pronouns']);
+const EXCLUDED_NAMES = new Set(['official_rank', 'score', 'neitsu', 'hauras', 'heaven', 'kaina', 'aqua', 'aya', 'statut', 'performance_1', 'link_to_the_performance_1', 'performance_2', 'link_to_the_performance_2', 'contestants', 'contestant', 'username', 'country', 'pronouns', 'instagram']);
 
 // ==========================================
 // 3. MOTEUR DE LECTURE ROBUSTE
@@ -437,7 +437,7 @@ async function loadDataFromRoundTabs() {
      const name = String(pickValue(row, ['name', 'contestant', 'contestants', 'candidate']) || '').trim(); 
      if (!name) return;
      const id = normId(name);
-     if (EXCLUDED_NAMES.has(id)) return; // Bloque les rangées accidentelles de titres
+     if (EXCLUDED_NAMES.has(id)) return;
 
      const instagram = String(pickValue(row, ['instagram', 'instagram_handle', 'username']) || '').trim();
      const country = String(pickValue(row, ['country', 'pays', 'origine']) || '').trim();
@@ -481,7 +481,7 @@ async function loadDataFromRoundTabs() {
    });
  });
 
- // Mémoire automatique des éliminées pour les rounds ultérieurs
+ // Propagation automatique des éliminations aux rounds suivants
  const allIds = [...contestantsMap.keys()];
  let lastStatusObj = {};
  ROUND_ORDER.forEach(round => {
@@ -546,12 +546,10 @@ function statusLabel(status) { return status ? t(status) : t('tbd'); }
 function getOfficialRankingByRound() {
  const out = Object.fromEntries(ROUND_ORDER.map(r => [r, {}]));
  
- // Charge les rangs manuels existants
  state.data.judge_rankings.filter(r => normalizeJudgeName(r.judge_name) === 'official').forEach(r => { 
      if (Number.isFinite(r.rank)) out[r.round_id][r.contestant_id] = r.rank; 
  });
  
- // Attribution dynamique si des notes sont présentes
  ROUND_ORDER.forEach(round => {
    const scoredCandidates = state.data.scores
        .filter(s => s.round_id === round && Number.isFinite(s.total) && !Number.isFinite(out[round][s.contestant_id]))
@@ -593,17 +591,18 @@ function getRankingMapByView(view) {
  return getOfficialRankingByRound();
 }
 
-// Détection souple : active le round dès qu'un statut, un vote ou un lien apparaît
+// 🔧 CORRECTION CLÉ : Détecte le round dès qu'il y a un statut (même sans score)
 function getLatestRound() {
  for (let i = ROUND_ORDER.length - 1; i >= 0; i--) {
    const round = ROUND_ORDER[i];
    const hasScores = state.data.scores.some(r => r.round_id === round && Number.isFinite(r.total));
    const hasOfficialRanks = state.data.judge_rankings.some(r => r.round_id === round && normalizeJudgeName(r.judge_name) === 'official');
    const hasJudgeRanks = state.data.judge_rankings.some(r => r.round_id === round && Number.isFinite(r.rank));
-   const hasActiveStatus = state.data.round_status.some(r => r.round_id === round && ['safe', 'nominee', 'saved_judges', 'saved_public', 'winner', 'second', 'third'].includes(r.status));
+   // On vérifie s'il y a le moindre statut renseigné (safe, nominee, eliminated...)
+   const hasAnyStatus = state.data.round_status.some(r => r.round_id === round && r.status !== '');
    const hasPerfs = state.data.submissions.some(r => r.round_id === round && (r.song_title || r.youtube_url));
    
-   if (hasScores || hasOfficialRanks || hasJudgeRanks || hasActiveStatus || hasPerfs) {
+   if (hasScores || hasOfficialRanks || hasJudgeRanks || hasAnyStatus || hasPerfs) {
      return round;
    }
  }
@@ -631,6 +630,7 @@ function sortedContestants() {
      if (Number.isFinite(ar)) return -1;
      if (Number.isFinite(br)) return 1;
    }
+   // Tri alphabétique par défaut si pas de scores/rangs officiels saisis
    return String(a.name || '').localeCompare(String(b.name || ''));
  });
 }
