@@ -143,7 +143,7 @@
     }
     .c-rank { 
         position: absolute; top: 20%; left: 40%; 
-        font-family: 'Playfair Display'; font-size: 1.1rem; color: var(--muted); 
+        font-family: 'Playfair Display'; font-size: 1.05rem; color: var(--muted); font-weight: 600;
     }
     .c-name { 
         position: absolute; top: 35%; left: 40%; 
@@ -286,7 +286,7 @@ let currentLang = localStorage.getItem('kca_lang') || 'fr';
 function t(key) { return I18N[currentLang][key] || key; }
 
 // ==========================================
-// 2. CONFIGURATION LIÉE AU NOUVEAU SHEETS
+// 2. CONFIGURATION DU CLASSEUR OFFICIEL
 // ==========================================
 const CONFIG = {
  SHEET_ID: "1MG4wlEm5XADSGALQdV9uBO_zF77D1AZx_DqJ5XXmGME",
@@ -298,6 +298,7 @@ const CONFIG = {
 
 const ROUND_ORDER = ["PRERANK", "ROUND_1", "ROUND_2", "ROUND_3", "ROUND_4", "ROUND_5", "FINAL"];
 const JUDGE_NAMES = ["Neitsu", "Hauras", "Heaven", "Kaina", "Aqua", "Aya"];
+const EXCLUDED_NAMES = new Set(['official_rank', 'score', 'neitsu', 'hauras', 'heaven', 'kaina', 'aqua', 'aya', 'statut', 'performance_1', 'link_to_the_performance_1', 'performance_2', 'link_to_the_performance_2', 'contestants', 'contestant', 'username', 'country', 'pronouns']);
 
 // ==========================================
 // 3. MOTEUR DE LECTURE ROBUSTE
@@ -436,6 +437,8 @@ async function loadDataFromRoundTabs() {
      const name = String(pickValue(row, ['name', 'contestant', 'contestants', 'candidate']) || '').trim(); 
      if (!name) return;
      const id = normId(name);
+     if (EXCLUDED_NAMES.has(id)) return; // Bloque les rangées accidentelles de titres
+
      const instagram = String(pickValue(row, ['instagram', 'instagram_handle', 'username']) || '').trim();
      const country = String(pickValue(row, ['country', 'pays', 'origine']) || '').trim();
      const pronouns = String(pickValue(row, ['pronouns', 'pronoms']) || '').trim();
@@ -478,6 +481,7 @@ async function loadDataFromRoundTabs() {
    });
  });
 
+ // Mémoire automatique des éliminées pour les rounds ultérieurs
  const allIds = [...contestantsMap.keys()];
  let lastStatusObj = {};
  ROUND_ORDER.forEach(round => {
@@ -525,7 +529,7 @@ async function loadData() {
 
 function normalizeData() {
  const d = state.data;
- d.contestants = d.contestants.filter(c => c.id);
+ d.contestants = d.contestants.filter(c => c.id && !EXCLUDED_NAMES.has(c.id));
  const contestantsById = new Map();
  d.contestants.forEach((c) => {
    if (!contestantsById.has(c.id)) { contestantsById.set(c.id, c); return; }
@@ -542,10 +546,12 @@ function statusLabel(status) { return status ? t(status) : t('tbd'); }
 function getOfficialRankingByRound() {
  const out = Object.fromEntries(ROUND_ORDER.map(r => [r, {}]));
  
+ // Charge les rangs manuels existants
  state.data.judge_rankings.filter(r => normalizeJudgeName(r.judge_name) === 'official').forEach(r => { 
      if (Number.isFinite(r.rank)) out[r.round_id][r.contestant_id] = r.rank; 
  });
  
+ // Attribution dynamique si des notes sont présentes
  ROUND_ORDER.forEach(round => {
    const scoredCandidates = state.data.scores
        .filter(s => s.round_id === round && Number.isFinite(s.total) && !Number.isFinite(out[round][s.contestant_id]))
@@ -587,31 +593,44 @@ function getRankingMapByView(view) {
  return getOfficialRankingByRound();
 }
 
+// Détection souple : active le round dès qu'un statut, un vote ou un lien apparaît
 function getLatestRound() {
  for (let i = ROUND_ORDER.length - 1; i >= 0; i--) {
    const round = ROUND_ORDER[i];
-   const hasData = state.data.judge_rankings.some(r => r.round_id === round) ||
-                   state.data.scores.some(r => r.round_id === round) ||
-                   state.data.round_status.some(r => r.round_id === round && r.status !== 'eliminated') ||
-                   state.data.submissions.some(r => r.round_id === round && (r.song_title || r.youtube_url));
-   if (hasData) return round;
+   const hasScores = state.data.scores.some(r => r.round_id === round && Number.isFinite(r.total));
+   const hasOfficialRanks = state.data.judge_rankings.some(r => r.round_id === round && normalizeJudgeName(r.judge_name) === 'official');
+   const hasJudgeRanks = state.data.judge_rankings.some(r => r.round_id === round && Number.isFinite(r.rank));
+   const hasActiveStatus = state.data.round_status.some(r => r.round_id === round && ['safe', 'nominee', 'saved_judges', 'saved_public', 'winner', 'second', 'third'].includes(r.status));
+   const hasPerfs = state.data.submissions.some(r => r.round_id === round && (r.song_title || r.youtube_url));
+   
+   if (hasScores || hasOfficialRanks || hasJudgeRanks || hasActiveStatus || hasPerfs) {
+     return round;
+   }
  }
  return 'PRERANK';
 }
 
 function sortedContestants() {
- const displayByRound = getOfficialRankingByRound();
- const current = displayByRound[state.latestRound] || {};
+ const officialByRound = getOfficialRankingByRound();
+ const current = officialByRound[state.latestRound] || {};
+ const hasActiveRanks = state.data.contestants.some(c => {
+   const isElim = getStatus(state.latestRound, c.id) === 'eliminated';
+   return !isElim && Number.isFinite(current[c.id]);
+ });
+
  return [...state.data.contestants].sort((a, b) => {
    const aStatus = getStatus(state.latestRound, a.id);
    const bStatus = getStatus(state.latestRound, b.id);
    const aElim = aStatus === 'eliminated' ? 1 : 0;
    const bElim = bStatus === 'eliminated' ? 1 : 0;
    if (aElim !== bElim) return aElim - bElim;
-   const ar = current[a.id], br = current[b.id];
-   if (Number.isFinite(ar) && Number.isFinite(br)) return ar - br;
-   if (Number.isFinite(ar)) return -1;
-   if (Number.isFinite(br)) return 1;
+
+   if (hasActiveRanks) {
+     const ar = current[a.id], br = current[b.id];
+     if (Number.isFinite(ar) && Number.isFinite(br)) return ar - br;
+     if (Number.isFinite(ar)) return -1;
+     if (Number.isFinite(br)) return 1;
+   }
    return String(a.name || '').localeCompare(String(b.name || ''));
  });
 }
@@ -627,7 +646,6 @@ function renderContestants() {
  }
  const officialByRound = getOfficialRankingByRound();
  const currentRanks = officialByRound[state.latestRound] || {};
- 
  const perfScores = getPerformanceScoreByRound()[state.latestRound] || {};
  const judgesData = JUDGE_NAMES.map(j => getJudgeRankingByRound(j)[state.latestRound] || {});
  
@@ -683,7 +701,8 @@ function renderContestants() {
            }
        });
        
-       const scoreDisplay = hasData ? totalPoints.toFixed(1).replace(/\.0$/, '') : 'N/A';
+       const rankDisplay = Number.isFinite(rank) ? `RANK #${rank}` : (status === 'eliminated' ? 'ÉLIMINÉE' : 'EN COURS');
+       const scoreDisplay = hasData ? totalPoints.toFixed(1).replace(/\.0$/, '') : '—';
        
        let eliteClass = '';
        if (rank === 1) eliteClass = 'top1-card';
@@ -694,7 +713,7 @@ function renderContestants() {
 
        return `<div class="contestant-card ${status === 'eliminated' ? 'eliminated-card' : ''} ${eliteClass}" style="--rand: ${randomRot};" onclick="location.hash='#profile/${c.id}'">
        <img src="${c.photo_url}" class="c-pic" loading="lazy" data-contestant-id="${c.id}" alt="${c.name}" onerror="handleImageFallback(this)" />
-       <div class="c-rank">RANK ${Number.isFinite(rank) ? rank : '-'}</div>
+       <div class="c-rank">${rankDisplay}</div>
        <div class="c-name">${getContestantName(c.id)}</div>
        <div class="c-score">Score: ${scoreDisplay}</div>
        <div class="c-status ${statusClass(status)}">${statusLabel(status)}</div>
@@ -724,29 +743,24 @@ function renderRankings() {
  const activeRound = state.selectedRankingsRound || state.latestRound;
  const activeRoundIndex = Math.max(0, ROUND_ORDER.indexOf(activeRound));
  
- const getLatestOfficialRank = (contestantId) => {
-   for (let i = activeRoundIndex; i >= 0; i--) { 
-     const rank = officialByRound[ROUND_ORDER[i]]?.[contestantId]; 
-     if (Number.isFinite(rank)) return rank; 
-   }
-   return null;
- };
- 
+ const hasActiveRanks = state.data.contestants.some(c => {
+   const isElim = getStatus(activeRound, c.id) === 'eliminated';
+   return !isElim && Number.isFinite(rankingMap[activeRound]?.[c.id]);
+ });
+
  const list = [...state.data.contestants].sort((a, b) => {
-   const aEliminated = getStatus(activeRound, a.id) === 'eliminated';
-   const bEliminated = getStatus(activeRound, b.id) === 'eliminated';
-   if (aEliminated !== bEliminated) return aEliminated ? 1 : -1;
-   const va = rankingMap[activeRound]?.[a.id]; 
-   const vb = rankingMap[activeRound]?.[b.id];
-   if (Number.isFinite(va) && Number.isFinite(vb)) { return isPerformance ? vb - va : va - vb; }
-   if (Number.isFinite(va)) return -1; 
-   if (Number.isFinite(vb)) return 1;
-   const ar = getLatestOfficialRank(a.id); 
-   const br = getLatestOfficialRank(b.id);
-   if (Number.isFinite(ar) && Number.isFinite(br)) return ar - br;
-   if (Number.isFinite(ar)) return -1; 
-   if (Number.isFinite(br)) return 1;
-   return a.name.localeCompare(b.name);
+   const aElim = getStatus(activeRound, a.id) === 'eliminated' ? 1 : 0;
+   const bElim = getStatus(activeRound, b.id) === 'eliminated' ? 1 : 0;
+   if (aElim !== bElim) return aElim - bElim;
+
+   if (hasActiveRanks) {
+     const va = rankingMap[activeRound]?.[a.id]; 
+     const vb = rankingMap[activeRound]?.[b.id];
+     if (Number.isFinite(va) && Number.isFinite(vb)) { return isPerformance ? vb - va : va - vb; }
+     if (Number.isFinite(va)) return -1; 
+     if (Number.isFinite(vb)) return 1;
+   }
+   return String(a.name || '').localeCompare(String(b.name || ''));
  });
 
  const nominations = {
@@ -773,7 +787,14 @@ function renderRankings() {
  </thead>
  <tbody>
  ${list.map((c, idx) => `<tr><td>${idx + 1}</td><td><a href="#profile/${c.id}">${getContestantName(c.id)}</a></td>
- ${ROUND_ORDER.map(r => { const v = rankingMap[r]?.[c.id]; if (!Number.isFinite(v)) return '<td>—</td>'; return `<td>${isPerformance ? v.toFixed(1).replace(/\.0$/, '') : v}</td>`; }).join('')}
+ ${ROUND_ORDER.map(r => { 
+     const v = rankingMap[r]?.[c.id]; 
+     if (Number.isFinite(v)) return `<td>${isPerformance ? v.toFixed(1).replace(/\.0$/, '') : v}</td>`; 
+     const st = getStatus(r, c.id);
+     if (st && st !== 'eliminated') return `<td><span class="pill ${statusClass(st)}" style="font-size:0.68rem; padding:0.15rem 0.5rem;">${statusLabel(st)}</span></td>`;
+     if (st === 'eliminated') return `<td><span class="pill eliminated" style="font-size:0.68rem; padding:0.15rem 0.5rem;">${statusLabel('eliminated')}</span></td>`;
+     return '<td>—</td>';
+ }).join('')}
  </tr>`).join('')}
  </tbody>
  </table>
