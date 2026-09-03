@@ -286,7 +286,7 @@ const I18N = {
   es: {
     tagline: "Temporada 2 • Back to School", welcome_title: "Bienvenidos a la academia", nav_contestants: "Academia", nav_rankings: "Clasificaciones", nav_votes: "Votos",
     search_ph: "Buscar estudiante...", all_status: "Todos los estados", safe: "A salvo", nominee: "Zona Roja", saved_judges: "Salvada (Jurado)", saved_public: "Salvada (Público)", eliminated: "Eliminada", tbd: "Por determinar",
-    winner: "GANADORA", second: "2ª", third: "3ª", fourth: "4ª", fifth: "5ª", sixth: "6ª", seventh: "7ª",
+    winner: "GANADORA", second: "2DA", third: "3RA", fourth: "4TA", fifth: "5TA", sixth: "6TA", seventh: "7MA",
     auto_updated: "Archivos de estudiantes actualizados tras:", no_contestants: "No se encontró ninguna estudiante.",
     rank: "Rango", pos: "Pos", name: "Nombre", rankings_desc: "Trayectoria de la clasificación de la clase. Usa los menús para explorar reportes pasados.",
     nominations: "Tablón de anuncios de estado", nominee_lbl: "Zona Roja", saved_judges_lbl: "Salvada (Jurado)", saved_public_lbl: "Salvada (Público)", eliminated_lbl: "Eliminada",
@@ -358,6 +358,11 @@ function t(key) { return I18N[currentLang][key] || key; }
 const CONFIG = {
  SHEET_ID: "1EMn0h_u7FCHsVD4kINv1Y_LDzCoHR0iFRsPtXdGlDEs",
  VOTE_SHEET_ID: "1thS50JjY1ElXjvZIPm0lpEtD2CnVyo-iw33qB-efPH0",
+ SHEETS: { 
+   contestants: "contestants", rounds: "rounds", submissions: "submissions", 
+   scores: "scores", judge_rankings: "judge_rankings", round_status: "round_status", 
+   votes_live: "votes_live" 
+ },
  ROUND_TABS: { PRERANK: "PRERANK", ROUND_1: "R1", ROUND_2: "R2", ROUND_3: "R3", ROUND_4: "R4", ROUND_5: "R5", FINAL: "R6" },
  VOTE_FORM_URL: "https://forms.gle/63aiEEd9ioR8juBL9",
  REFRESH_MS: 30000
@@ -365,9 +370,10 @@ const CONFIG = {
 
 const ROUND_ORDER = ["PRERANK", "ROUND_1", "ROUND_2", "ROUND_3", "ROUND_4", "ROUND_5", "FINAL"];
 const JUDGE_NAMES = ["Neitsu", "Hauras", "Heaven", "Kaina", "Aqua", "Aya"];
+const FIXED_ELIMINATED_RANKS = {};
 
 // ==========================================
-// 4. FONCTIONS PRINCIPALES (PARSEUR BLINDÉ)
+// 4. FONCTIONS PRINCIPALES (PARSEUR)
 // ==========================================
 
 function setLang(lang) {
@@ -420,13 +426,12 @@ function handleImageFallback(img) {
  img.src = 'https://images.unsplash.com/photo-1517841905240-472988babdf9?ixlib=rb-1.2.1&auto=format&fit=crop&w=300&q=80'; 
 }
 
-// 🛡️ SYSTÈME DE FETCH BLINDÉ AVEC AUTO-FALLBACK
+// 🛡️ SYSTÈME FETCH BLINDÉ POUR GÉRER TOUS LES NOMS D'ONGLETS
 async function fetchSheetTab(sheetName, customSheetId = null) {
  const targetId = customSheetId || CONFIG.SHEET_ID;
  if (!targetId) return []; 
  
  const tryFetch = async (name) => {
-   // Ajout de Date.now() pour contourner TOTALEMENT le cache Google
    const url = `https://docs.google.com/spreadsheets/d/${targetId}/gviz/tq?sheet=${encodeURIComponent(name)}&tqx=out:json&_=${Date.now()}`;
    try {
      const response = await fetch(url);
@@ -439,16 +444,15 @@ async function fetchSheetTab(sheetName, customSheetId = null) {
    } catch (e) { return null; }
  };
 
+ // L'algorithme teste plusieurs variantes du nom au cas où (espaces, majuscules...)
  let json = await tryFetch(sheetName);
- 
- // Si le nom "R3" plante, on tente automatiquement "Round 3", "ROUND 3", "Round_3", etc.
+ if (!json) json = await tryFetch(sheetName.toLowerCase());
+ if (!json) json = await tryFetch(sheetName + ' ');
  if (!json && sheetName.match(/^R\d$/)) {
      const num = sheetName.replace('R', '');
      json = await tryFetch(`Round ${num}`) || await tryFetch(`Round_${num}`) || await tryFetch(`ROUND ${num}`) || await tryFetch(`R${num} `);
  }
- if (!json && sheetName === 'R6') {
-     json = await tryFetch('FINAL') || await tryFetch('Finale') || await tryFetch('FINALE');
- }
+ if (!json && sheetName === 'R6') json = await tryFetch('FINAL') || await tryFetch('Finale') || await tryFetch('FINALE');
  
  if (!json) return [];
  
@@ -655,10 +659,11 @@ function getRankingMapByView(view) {
  return getOfficialRankingByRound();
 }
 
-// Détecteur de Round ultra-permissif (bascule s'il trouve LA MOINDRE info)
+// 🛡️ DÉTECTEUR DE ROUND CORRIGÉ ET ULTRA-PERMISSIF
 function getLatestRound() {
  for (let i = ROUND_ORDER.length - 1; i >= 0; i--) {
    const round = ROUND_ORDER[i];
+   // Si le script a capté la MOINDRE ligne de score ou de statut dans ce round, il l'active.
    const hasData = state.data.judge_rankings.some(r => r.round_id === round) ||
                    state.data.scores.some(r => r.round_id === round) ||
                    state.data.round_status.some(r => r.round_id === round && r.status !== 'eliminated') ||
@@ -823,8 +828,9 @@ function renderRankings() {
  <h2>${t('nav_rankings')}</h2>
  <div class="filters">
  <select id="rankingViewSelect">${viewOptions.map(o => `<option value="${o.value}" ${o.value===state.rankingView?'selected':''}>${o.label}</option>`).join('')}</select>
+ <!-- 🔓 MENU DÉBLOQUÉ : Affiche tous les rounds pour ne plus jamais bloquer l'utilisateur -->
  <select id="rankingsRoundSelect">
- ${ROUND_ORDER.slice(0, ROUND_ORDER.indexOf(state.latestRound) + 1).map(r => `<option value="${r}" ${r === activeRound ? 'selected' : ''}>${getRoundLabel(r)}</option>`).join('')}
+ ${ROUND_ORDER.map(r => `<option value="${r}" ${r === activeRound ? 'selected' : ''}>${getRoundLabel(r)}</option>`).join('')}
  </select>
  </div>
  <p class="small">${t('rankings_desc')}</p>
@@ -1035,6 +1041,7 @@ function renderVotes() {
  <div class="card-paper">
  <h2>${t('nav_votes')}</h2>
  <div class="filters">
+ <!-- 🔓 MENU DÉBLOQUÉ -->
  <select id="votesRoundSelect">${ROUND_ORDER.map(r => `<option value="${r}" ${r===state.votesRound?'selected':''}>${getRoundLabel(r)}</option>`).join('')}</select>
  ${CONFIG.VOTE_FORM_URL ? `<a class="btn" target="_blank" rel="noopener noreferrer" href="${CONFIG.VOTE_FORM_URL}">${t('vote_now')}</a>` : ''}
  </div>
