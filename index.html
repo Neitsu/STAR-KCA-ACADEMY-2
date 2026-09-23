@@ -219,6 +219,25 @@
   </style>
 </head>
 <body>
+
+<script>
+// ==========================================
+// 🛡️ SYSTÈME DE DÉTECTION D'ERREUR VISIBLE
+// ==========================================
+window.onerror = function(msg, url, line) {
+  const errDiv = document.createElement('div');
+  errDiv.style = "background:#ff4444; color:white; padding:15px; font-weight:bold; position:fixed; top:0; left:0; width:100%; z-index:9999; text-align:center;";
+  errDiv.innerHTML = `⚠️ CRASH TECHNIQUE : ${msg} (Ligne ${line}). Prends un screen de ce bandeau !`;
+  document.body.appendChild(errDiv);
+};
+window.onunhandledrejection = function(event) {
+  const errDiv = document.createElement('div');
+  errDiv.style = "background:#ff4444; color:white; padding:15px; font-weight:bold; position:fixed; top:0; left:0; width:100%; z-index:9999; text-align:center;";
+  errDiv.innerHTML = `⚠️ ERREUR RESEAU/GOOGLE : Impossible de charger l'Excel (${event.reason}).`;
+  document.body.appendChild(errDiv);
+};
+</script>
+
 <header>
   <div class="container topbar">
     <div class="brand">
@@ -256,9 +275,9 @@ const I18N = {
     auto_updated: "Dossiers des élèves à jour après le :", no_contestants: "Aucune élève trouvée.",
     rank: "Rang", pos: "Pos", name: "Nom", rankings_desc: "Évolution du classement de la promotion.",
     nominations: "Tableau d'affichage des statuts", nominee_lbl: "Zone Rouge", saved_judges_lbl: "Sauvée (Jury)", saved_public_lbl: "Sauvée (Public)", eliminated_lbl: "Éliminée",
-    global_chart: "Graphique d'évolution de la promotion", perf_score: "Score Total", official_rank: "Classement Officiel",
-    back_contestants: "← Retour au Tableau", contestant_not_found: "Dossier élève introuvable.", rounds_overview: "Bulletin de notes", round: "Round", official: "Officiel", status: "Statut",
-    performances: "Performances Vocales", song: "Chanson", links: "Liens", link_perf: "Visionner", no_links: "Aucun enregistrement.",
+    global_chart: "Graphique d'évolution", perf_score: "Score Adaptatif", official_rank: "Classement Officiel",
+    back_contestants: "← Retour", contestant_not_found: "Dossier introuvable.", rounds_overview: "Bulletin de notes", round: "Round", official: "Officiel", status: "Statut",
+    performances: "Performances", song: "Chanson", links: "Liens", link_perf: "Visionner", no_links: "Aucun enregistrement.",
     indiv_chart: "Courbe de progression", country: "Pays", pronouns: "Pronoms", instagram: "Instagram",
     votes: "Votes", vote_now: "Soutenir une élève", no_vote_data: "Aucun vote pour ce round.", avail_vote_rounds: "Rounds de vote disponibles :", total_votes: "Total des bulletins :", last_refresh: "Dernière MAJ :",
     r_prerank: "Éval. Initiale", r_r1: "Round 1", r_r2: "Round 2", r_r3: "Round 3", r_r4: "Round 4", r_r5: "Demi-Finale", r_final: "Finale",
@@ -271,10 +290,10 @@ const I18N = {
     auto_updated: "Student files updated after:", no_contestants: "No student found.",
     rank: "Rank", pos: "Pos", name: "Name", rankings_desc: "Class ranking trajectory.",
     nominations: "Status Notice Board", nominee_lbl: "Red Zone", saved_judges_lbl: "Saved (Jury)", saved_public_lbl: "Saved (Public)", eliminated_lbl: "Eliminated",
-    global_chart: "Global class evolution", perf_score: "Total Score", official_rank: "Official Rank",
-    back_contestants: "← Back to Board", contestant_not_found: "Student file not found.", rounds_overview: "Report Card", round: "Round", official: "Official", status: "Status",
-    performances: "Vocal Performances", song: "Song", links: "Links", link_perf: "Watch", no_links: "No records yet.",
-    indiv_chart: "Student progression curve", country: "Country", pronouns: "Pronouns", instagram: "Instagram",
+    global_chart: "Global class evolution", perf_score: "Adaptive Score", official_rank: "Official Rank",
+    back_contestants: "← Back", contestant_not_found: "Student file not found.", rounds_overview: "Report Card", round: "Round", official: "Official", status: "Status",
+    performances: "Performances", song: "Song", links: "Links", link_perf: "Watch", no_links: "No records yet.",
+    indiv_chart: "Progression curve", country: "Country", pronouns: "Pronouns", instagram: "Instagram",
     votes: "Votes", vote_now: "Support a student", no_vote_data: "No vote data for this round.", avail_vote_rounds: "Available vote rounds:", total_votes: "Total ballots:", last_refresh: "Last refresh:",
     r_prerank: "Init. Eval.", r_r1: "Round 1", r_r2: "Round 2", r_r3: "Round 3", r_r4: "Round 4", r_r5: "Semi-Final", r_final: "Final",
     opening_soon: "Loading student files..."
@@ -286,7 +305,7 @@ let currentLang = localStorage.getItem('kca_lang') || 'fr';
 function t(key) { return I18N[currentLang][key] || key; }
 
 // ==========================================
-// 2. CONFIGURATION DU CLASSEUR
+// 2. CONFIGURATION & ID DU SHEETS
 // ==========================================
 const CONFIG = {
  SHEET_ID: "1MG4wlEm5XADSGALQdV9uBO_zF77D1AZx_DqJ5XXmGME",
@@ -301,7 +320,7 @@ const JUDGE_NAMES = ["Neitsu", "Hauras", "Heaven", "Kaina", "Aqua", "Aya"];
 const EXCLUDED_NAMES = new Set(['official_rank', 'score', 'neitsu', 'hauras', 'heaven', 'kaina', 'aqua', 'aya', 'statut', 'performance_1', 'link_to_the_performance_1', 'performance_2', 'link_to_the_performance_2', 'contestants', 'contestant', 'username', 'country', 'pronouns', 'instagram']);
 
 // ==========================================
-// 3. MOTEUR DE LECTURE OFFICIEL (SANS PLANTAGE)
+// 3. MOTEUR DE LECTURE (JSON)
 // ==========================================
 function setLang(lang) {
  currentLang = lang; localStorage.setItem('kca_lang', lang);
@@ -359,7 +378,6 @@ function handleImageFallback(img) {
  img.src = 'https://images.unsplash.com/photo-1517841905240-472988babdf9?ixlib=rb-1.2.1&auto=format&fit=crop&w=300&q=80'; 
 }
 
-// LECTEUR JSON RÉPARÉ : Insensible aux colonnes vides !
 async function fetchSheetTab(sheetName, customSheetId = null) {
  const targetId = customSheetId || CONFIG.SHEET_ID;
  if (!targetId) return []; 
@@ -380,11 +398,10 @@ async function fetchSheetTab(sheetName, customSheetId = null) {
      
      let cols = (json.table.cols || []).map(c => c ? (c.label || c.id || '') : '');
      
-     // Scanner les premières lignes pour trouver le vrai titre des colonnes
      let headerIndex = -1;
      for (let i = 0; i < Math.min(5, rows.length); i++) {
          if (rows[i] && rows[i].c && rows[i].c.some(cell => cell && typeof cell.v === 'string' && 
-             ['contestants', 'name', 'candidat', 'statut'].some(k => cell.v.toLowerCase().includes(k)))) {
+             ['contestants', 'name', 'candidat'].some(k => cell.v.toLowerCase().includes(k)))) {
              headerIndex = i;
              break;
          }
@@ -412,7 +429,6 @@ async function fetchSheetTab(sheetName, customSheetId = null) {
  } catch (e) { return []; }
 }
 
-async function fetchOptionalSheetTab(sheetName, customSheetId = null) { return await fetchSheetTab(sheetName, customSheetId); }
 function keyNorm(k) { return String(k || '').toLowerCase().replace(/[^a-z0-9]/g, ''); }
 function pickValue(row, aliases) {
  const keys = Object.keys(row);
@@ -429,9 +445,105 @@ function parseNum(val) {
  return isNaN(num) ? NaN : num;
 }
 
-// OUTIL AIDE 1 : Mémoire des Éliminées
+// ==========================================
+// 4. ALGORITHMES DE SVS INTELLIGENTS
+// ==========================================
+
+function getStatus(roundId, contestantId) { return state.data.round_status.find(r => r.round_id === roundId && r.contestant_id === contestantId)?.status || ''; }
+function statusClass(status) { return status || 'tbd'; }
+function statusLabel(status) { return status ? t(status) : t('tbd'); }
+
+// Mémoire : Identifie instantanément à quel round l'élève a été éliminée (pour couper son graphe)
 function getFirstEliminatedRoundIndex(contestantId) {
     return ROUND_ORDER.findIndex(round => getStatus(round, contestantId) === 'eliminated');
+}
+
+// Barème Adaptatif : Compte combien d'élèves n'ont pas encore été éliminées au début d'un round donné
+function getActiveCountForRound(roundId) {
+    const rIdx = ROUND_ORDER.indexOf(roundId);
+    let count = 0;
+    state.data.contestants.forEach(c => {
+        const elimIdx = getFirstEliminatedRoundIndex(c.id);
+        // Si elle n'est jamais éliminée, ou si elle a été éliminée PENDANT ce round ou PLUS TARD
+        if (elimIdx === -1 || elimIdx >= rIdx) {
+            count++;
+        }
+    });
+    return count > 0 ? count : 40;
+}
+
+// Calcule mathématiquement le score selon le nombre d'élèves en lice
+function getPerformanceScoreByRound() {
+    const out = Object.fromEntries(ROUND_ORDER.map(r => [r, {}]));
+    
+    ROUND_ORDER.forEach(round => {
+        const activeCount = getActiveCountForRound(round);
+        const pointsBase = activeCount + 1; // Ex: s'il y a 34 élèves -> Base de 35 (le 1er aura 35-1=34 pts)
+        
+        state.data.contestants.forEach(c => {
+            let totalPoints = 0;
+            let hasData = false;
+            
+            const rawScoreRec = state.data.scores.find(s => s.round_id === round && s.contestant_id === c.id);
+            if (rawScoreRec && Number.isFinite(rawScoreRec.total)) {
+                totalPoints += rawScoreRec.total;
+                hasData = true;
+            }
+            
+            JUDGE_NAMES.forEach(jn => {
+                const jRankRec = state.data.judge_rankings.find(r => r.round_id === round && r.contestant_id === c.id && normalizeJudgeName(r.judge_name) === normalizeJudgeName(jn));
+                if (jRankRec && Number.isFinite(jRankRec.rank) && jRankRec.rank >= 1) {
+                    totalPoints += Math.max(0, pointsBase - jRankRec.rank); // Applique le barème dynamique !
+                    hasData = true;
+                }
+            });
+            
+            if (hasData) {
+                out[round][c.id] = totalPoints;
+            }
+        });
+    });
+    return out;
+}
+
+// Compile le Classement Officiel + Mémoire des rangs passés
+function getOfficialRankingByRound() {
+    const out = Object.fromEntries(ROUND_ORDER.map(r => [r, {}]));
+    
+    // 1. Rangs rentrés manuellement par toi
+    state.data.judge_rankings.filter(r => normalizeJudgeName(r.judge_name) === 'official').forEach(r => { 
+        if (Number.isFinite(r.rank)) out[r.round_id][r.contestant_id] = r.rank; 
+    });
+    
+    // 2. Mémorise et fige le rang de l'élève pour le reste de la saison après son élimination
+    state.data.contestants.forEach(c => {
+        const elimIndex = getFirstEliminatedRoundIndex(c.id);
+        if (elimIndex !== -1) {
+            const elimRound = ROUND_ORDER[elimIndex];
+            const finalRank = out[elimRound][c.id];
+            if (Number.isFinite(finalRank)) {
+                for (let i = elimIndex + 1; i < ROUND_ORDER.length; i++) {
+                    out[ROUND_ORDER[i]][c.id] = finalRank; 
+                }
+            }
+        }
+    });
+
+    // 3. Trie les survivantes automatiquement selon les scores dynamiques du R1, R2, R3...
+    const perfScoresByRound = getPerformanceScoreByRound();
+    ROUND_ORDER.forEach(round => {
+        const perfScores = perfScoresByRound[round];
+        const scoredIds = Object.keys(perfScores).filter(id => !Number.isFinite(out[round][id]));
+        
+        scoredIds.sort((a, b) => perfScores[b] - perfScores[a]);
+        
+        let autoRank = 1;
+        scoredIds.forEach((id) => {
+            out[round][id] = autoRank++;
+        });
+    });
+    
+    return out;
 }
 
 async function loadDataFromRoundTabs() {
@@ -495,22 +607,6 @@ async function loadDataFromRoundTabs() {
    });
  });
 
- // Propage le statut d'élimination de la candidate pour tous les rounds à venir.
- const allIds = [...contestantsMap.keys()];
- let lastStatusObj = {};
- ROUND_ORDER.forEach(round => {
-     allIds.forEach(id => {
-         const existingIndex = round_status_clean.findIndex(r => r.round_id === round && r.contestant_id === id);
-         if (existingIndex >= 0) {
-             lastStatusObj[id] = round_status_clean[existingIndex].status;
-         } else {
-             if (lastStatusObj[id] === 'eliminated') {
-                 round_status_clean.push({ round_id: round, contestant_id: id, status: 'eliminated' });
-             }
-         }
-     });
- });
-
  return { contestants: [...contestantsMap.values()], rounds: [], submissions, scores, judge_rankings, round_status: round_status_clean, votes_live: [] };
 }
 
@@ -553,86 +649,10 @@ function normalizeData() {
  d.contestants = [...contestantsById.values()];
 }
 
-function getStatus(roundId, contestantId) { return state.data.round_status.find(r => r.round_id === roundId && r.contestant_id === contestantId)?.status || ''; }
-function statusClass(status) { return status || 'tbd'; }
-function statusLabel(status) { return status ? t(status) : t('tbd'); }
-
-// OUTIL AIDE 2 : Calcul dynamique des élèves en lice (Permet d'ajuster le barème des points)
-function getActiveCountForRound(roundId) {
-    const rIdx = ROUND_ORDER.indexOf(roundId);
-    let count = 0;
-    state.data.contestants.forEach(c => {
-        const elimIdx = getFirstEliminatedRoundIndex(c.id);
-        // La candidate est active si elle n'a JAMAIS été éliminée OU si elle l'a été lors de CE round ou PLUS TARD
-        if (elimIdx === -1 || elimIdx >= rIdx) {
-            count++;
-        }
-    });
-    return count > 0 ? count : 40;
-}
-
-function getOfficialRankingByRound() {
- const out = Object.fromEntries(ROUND_ORDER.map(r => [r, {}]));
- 
- // 1. Enregistre les rangs fixes entrés dans le tableur (ex: 27, 28)
- state.data.judge_rankings.filter(r => normalizeJudgeName(r.judge_name) === 'official').forEach(r => { 
-     if (Number.isFinite(r.rank)) out[r.round_id][r.contestant_id] = r.rank; 
- });
- 
- // 2. Calcule automatiquement le rang des élèves qui ont des "Total Scores" (les 1ères places)
- const perfScoresByRound = getPerformanceScoreByRound();
- ROUND_ORDER.forEach(round => {
-   const perfScores = perfScoresByRound[round];
-   const scoredIds = Object.keys(perfScores).filter(id => !Number.isFinite(out[round][id]));
-   
-   scoredIds.sort((a, b) => perfScores[b] - perfScores[a]);
-       
-   let autoRank = 1;
-   scoredIds.forEach((id) => {
-       out[round][id] = autoRank++;
-   });
- });
- return out;
-}
-
 function getJudgeRankingByRound(judgeName) {
  const key = normalizeJudgeName(judgeName);
  const out = Object.fromEntries(ROUND_ORDER.map(r => [r, {}]));
  state.data.judge_rankings.filter(r => normalizeJudgeName(r.judge_name) === key).forEach(r => { if (Number.isFinite(r.rank)) out[r.round_id][r.contestant_id] = r.rank; });
- return out;
-}
-
-// OUTIL AIDE 3 : Calcul mathématique exact des Scores Totaux !
-function getPerformanceScoreByRound() {
- const out = Object.fromEntries(ROUND_ORDER.map(r => [r, {}]));
- 
- ROUND_ORDER.forEach(round => {
-     const activeCount = getActiveCountForRound(round);
-     const pointsBase = activeCount + 1; // Ex: si 20 élèves, base de 21 pour que le 1er juge donne 20pts
-     
-     state.data.contestants.forEach(c => {
-         let totalPoints = 0;
-         let hasData = false;
-         
-         const rawScoreRec = state.data.scores.find(s => s.round_id === round && s.contestant_id === c.id);
-         if (rawScoreRec && Number.isFinite(rawScoreRec.total)) {
-             totalPoints += rawScoreRec.total;
-             hasData = true;
-         }
-         
-         JUDGE_NAMES.forEach(jn => {
-             const jRankRec = state.data.judge_rankings.find(r => r.round_id === round && r.contestant_id === c.id && normalizeJudgeName(r.judge_name) === normalizeJudgeName(jn));
-             if (jRankRec && Number.isFinite(jRankRec.rank) && jRankRec.rank >= 1) {
-                 totalPoints += Math.max(0, pointsBase - jRankRec.rank); // Utilisation de la base dynamique !
-                 hasData = true;
-             }
-         });
-         
-         if (hasData) {
-             out[round][c.id] = totalPoints;
-         }
-     });
- });
  return out;
 }
 
@@ -657,7 +677,6 @@ function getLatestRound() {
    const hasScores = state.data.scores.some(r => r.round_id === round && Number.isFinite(r.total));
    const hasOfficialRanks = state.data.judge_rankings.some(r => r.round_id === round && normalizeJudgeName(r.judge_name) === 'official');
    const hasJudgeRanks = state.data.judge_rankings.some(r => r.round_id === round && Number.isFinite(r.rank));
-   // On ignore les éliminés fantômes propagés par le code pour ne pas déclencher les rounds vides
    const hasAnyStatus = state.data.round_status.some(r => r.round_id === round && r.status !== '' && r.status !== 'eliminated');
    const hasPerfs = state.data.submissions.some(r => r.round_id === round && (r.song_title || r.youtube_url));
    
@@ -729,7 +748,9 @@ function renderContestants() {
    const q = document.getElementById('searchContestant').value.toLowerCase().trim();
    const f = document.getElementById('statusFilter').value;
    const list = sortedContestants().filter(c => c.name.toLowerCase().includes(q)).filter(c => {
-     const status = getStatus(state.latestRound, c.id);
+     let status = getStatus(state.latestRound, c.id);
+     if (!status && getFirstEliminatedRoundIndex(c.id) !== -1 && getFirstEliminatedRoundIndex(c.id) <= ROUND_ORDER.indexOf(state.latestRound)) status = 'eliminated';
+     
      if (f === 'all') return true;
      if (f === 'tbd') return !status;
      return status === f || (f === 'safe' && ['winner', 'second', 'third', 'fourth', 'fifth', 'sixth', 'seventh'].includes(status)); 
@@ -739,7 +760,10 @@ function renderContestants() {
      document.getElementById('contestantsGrid').innerHTML = `<p class="small">Aucune élève trouvée.</p>`;
    } else {
      document.getElementById('contestantsGrid').innerHTML = list.map((c) => {
-       const status = getStatus(state.latestRound, c.id);
+       let status = getStatus(state.latestRound, c.id);
+       const elimRound = getFirstEliminatedRoundIndex(c.id);
+       if (!status && elimRound !== -1 && elimRound <= ROUND_ORDER.indexOf(state.latestRound)) status = 'eliminated';
+
        const rank = currentRanks[c.id];
        const finalScore = perfScores[c.id];
        
@@ -881,8 +905,8 @@ function renderRankings() {
    
    return { 
      label: getContestantName(c.id), 
-     // LIGNE COUPÉE : Stoppe la courbe du graphe Global après le round d'élimination !
-     data: ROUND_ORDER.map((r, rIdx) => {
+     data: ROUND_ORDER.map((r, rIdx) => { 
+         // ✂️ LIGNE COUPÉE SUR LE GRAPH GLOBAL
          if (elimIndex !== -1 && rIdx > elimIndex) return null;
          const v = rankingMap[r]?.[c.id]; 
          return Number.isFinite(v) ? v : null; 
@@ -970,7 +994,9 @@ function renderProfile(contestantId) {
      let st = getStatus(r, c.id);
      const elimRound = getFirstEliminatedRoundIndex(c.id);
      if (!st && elimRound !== -1 && elimRound <= ROUND_ORDER.indexOf(r)) st = 'eliminated';
-     return `<tr><td><strong>${getRoundLabel(r)}</strong></td><td>${official[r]?.[c.id] ?? '—'}</td>${JUDGE_NAMES.map(j => `<td>${judgesByName[j]?.[r]?.[c.id] ?? '—'}</td>`).join('')}<td>${Number.isFinite(perfScore[r]?.[c.id]) ? perfScore[r][c.id].toFixed(1).replace(/\.0$/, '') : '—'}</td><td><span class="pill ${statusClass(st)}">${statusLabel(st)}</span></td></tr>`;
+     const pScore = perfScore[r]?.[c.id];
+     const pScoreStr = Number.isFinite(pScore) ? pScore.toFixed(1).replace(/\.0$/, '') : '—';
+     return `<tr><td><strong>${getRoundLabel(r)}</strong></td><td>${official[r]?.[c.id] ?? '—'}</td>${JUDGE_NAMES.map(j => `<td>${judgesByName[j]?.[r]?.[c.id] ?? '—'}</td>`).join('')}<td>${pScoreStr}</td><td><span class="pill ${statusClass(st)}">${statusLabel(st)}</span></td></tr>`;
  }).join('')}
  </tbody>
  </table>
@@ -1015,7 +1041,7 @@ function renderProfile(contestantId) {
  labels: ROUND_ORDER.map(r => getRoundLabel(r)),
  datasets: [{ 
    label: getContestantName(c.id), 
-   // LIGNE COUPÉE : Arrête de tracer la ligne sur le profil individuel après l'élimination !
+   // ✂️ LIGNE COUPÉE SUR LE GRAPH INDIVIDUEL
    data: ROUND_ORDER.map((r, rIdx) => {
        if (elimIndex !== -1 && rIdx > elimIndex) return null;
        const v = official[r]?.[c.id]; 
@@ -1094,7 +1120,8 @@ function setupNav() {
      renderProfile(hash.split('/')[1]);
    } else {
      const target = document.getElementById(page) ? page : 'contestants';
-     document.getElementById(target).classList.add('active');
+     const el = document.getElementById(target);
+     if(el) el.classList.add('active');
    }
    document.querySelectorAll('.nav-link').forEach(a => a.classList.toggle('active', a.getAttribute('href') === `#${page}`));
  };
