@@ -286,7 +286,7 @@ let currentLang = localStorage.getItem('kca_lang') || 'fr';
 function t(key) { return I18N[currentLang][key] || key; }
 
 // ==========================================
-// 2. CONFIGURATION DU CLASSEUR OFFICIEL
+// 2. CONFIGURATION AVEC LE NOUVEAU SHEETS ID
 // ==========================================
 const CONFIG = {
  SHEET_ID: "1MG4wlEm5XADSGALQdV9uBO_zF77D1AZx_DqJ5XXmGME",
@@ -301,7 +301,7 @@ const JUDGE_NAMES = ["Neitsu", "Hauras", "Heaven", "Kaina", "Aqua", "Aya"];
 const EXCLUDED_NAMES = new Set(['official_rank', 'score', 'neitsu', 'hauras', 'heaven', 'kaina', 'aqua', 'aya', 'statut', 'performance_1', 'link_to_the_performance_1', 'performance_2', 'link_to_the_performance_2', 'contestants', 'contestant', 'username', 'country', 'pronouns', 'instagram']);
 
 // ==========================================
-// 3. MOTEUR DE LECTURE ROBUSTE
+// 3. MOTEUR CSV BRUT (ANTI-PLANTAGE GOOGLE)
 // ==========================================
 function setLang(lang) {
  currentLang = lang; localStorage.setItem('kca_lang', lang);
@@ -442,7 +442,10 @@ function parseNum(val) {
  return isNaN(num) ? NaN : num;
 }
 
-// 🔧 AIDE 1 : Mémoire des éliminations
+function getStatus(roundId, contestantId) { return state.data.round_status.find(r => r.round_id === roundId && r.contestant_id === contestantId)?.status || ''; }
+function statusClass(status) { return status || 'tbd'; }
+function statusLabel(status) { return status ? t(status) : t('tbd'); }
+
 function getFirstEliminatedRoundIndex(contestantId) {
     return ROUND_ORDER.findIndex(round => getStatus(round, contestantId) === 'eliminated');
 }
@@ -508,22 +511,6 @@ async function loadDataFromRoundTabs() {
    });
  });
 
- // Propagation des éliminations : Si elle est éliminée, elle le reste pour la suite de l'affichage
- const allIds = [...contestantsMap.keys()];
- let lastStatusObj = {};
- ROUND_ORDER.forEach(round => {
-     allIds.forEach(id => {
-         const existingIndex = round_status_clean.findIndex(r => r.round_id === round && r.contestant_id === id);
-         if (existingIndex >= 0) {
-             lastStatusObj[id] = round_status_clean[existingIndex].status;
-         } else {
-             if (lastStatusObj[id] === 'eliminated') {
-                 round_status_clean.push({ round_id: round, contestant_id: id, status: 'eliminated' });
-             }
-         }
-     });
- });
-
  return { contestants: [...contestantsMap.values()], rounds: [], submissions, scores, judge_rankings, round_status: round_status_clean, votes_live: [] };
 }
 
@@ -566,20 +553,39 @@ function normalizeData() {
  d.contestants = [...contestantsById.values()];
 }
 
-function getStatus(roundId, contestantId) { return state.data.round_status.find(r => r.round_id === roundId && r.contestant_id === contestantId)?.status || ''; }
-function statusClass(status) { return status || 'tbd'; }
-function statusLabel(status) { return status ? t(status) : t('tbd'); }
+// 🔧 MÉCANIQUE DES POINTS DYNAMIQUE
+function getActiveCountForRound(roundId) {
+    let maxR = 0;
+    // Scanne les rangs de tous les juges pour trouver le plus grand
+    JUDGE_NAMES.forEach(jName => {
+        const jData = getJudgeRankingByRound(jName)[roundId] || {};
+        Object.values(jData).forEach(r => {
+            if (Number.isFinite(r) && r > maxR) maxR = r;
+        });
+    });
+    // Si aucun rang n'a été donné, on calcule le nombre mathématique de survivantes 
+    if (maxR === 0) {
+       const rIdx = ROUND_ORDER.indexOf(roundId);
+       let active = 0;
+       state.data.contestants.forEach(c => {
+           const elimIdx = getFirstEliminatedRoundIndex(c.id);
+           if (elimIdx === -1 || elimIdx >= rIdx) active++;
+       });
+       return active > 0 ? active : 40;
+    }
+    return maxR;
+}
 
-// 🔧 AIDE 2 : Mémoire automatique de l'Official Rank après élimination
+// 🔧 MÉMOIRE PERMANENTE DES RANGS DES ÉLIMINÉES
 function getOfficialRankingByRound() {
  const out = Object.fromEntries(ROUND_ORDER.map(r => [r, {}]));
  
- // 1. Charge les rangs rentrés manuellement
+ // 1. On charge les rangs existants (ex: 27, 28)
  state.data.judge_rankings.filter(r => normalizeJudgeName(r.judge_name) === 'official').forEach(r => { 
      if (Number.isFinite(r.rank)) out[r.round_id][r.contestant_id] = r.rank; 
  });
  
- // 2. Conserve le rang d'élimination pour le figer dans les tableaux suivants
+ // 2. On propage le rang d'une éliminée à tous les rounds futurs (pour qu'elle reste 27e)
  state.data.contestants.forEach(c => {
      const elimIndex = getFirstEliminatedRoundIndex(c.id);
      if (elimIndex !== -1) {
@@ -587,13 +593,13 @@ function getOfficialRankingByRound() {
          const finalRank = out[elimRound][c.id];
          if (Number.isFinite(finalRank)) {
              for (let i = elimIndex + 1; i < ROUND_ORDER.length; i++) {
-                 out[ROUND_ORDER[i]][c.id] = finalRank; // Mémorise la place pour tout le reste du concours
+                 out[ROUND_ORDER[i]][c.id] = finalRank; 
              }
          }
      }
  });
 
- // 3. Calcule automatiquement les rangs (1, 2, 3...) pour les élèves en lice qui ont un score
+ // 3. On calcule le rang des survivantes selon leur score dynamique
  ROUND_ORDER.forEach(round => {
    const scoredCandidates = state.data.scores
        .filter(s => s.round_id === round && Number.isFinite(s.total) && !Number.isFinite(out[round][s.contestant_id]))
@@ -641,7 +647,8 @@ function getLatestRound() {
    const hasScores = state.data.scores.some(r => r.round_id === round && Number.isFinite(r.total));
    const hasOfficialRanks = state.data.judge_rankings.some(r => r.round_id === round && normalizeJudgeName(r.judge_name) === 'official');
    const hasJudgeRanks = state.data.judge_rankings.some(r => r.round_id === round && Number.isFinite(r.rank));
-   const hasAnyStatus = state.data.round_status.some(r => r.round_id === round && r.status !== '' && r.status !== 'eliminated');
+   // Détecte si le round est actif, MEME s'il n'y a que des statuts (Safe/Nominee/etc.)
+   const hasAnyStatus = state.data.round_status.some(r => r.round_id === round && r.status !== '');
    const hasPerfs = state.data.submissions.some(r => r.round_id === round && (r.song_title || r.youtube_url));
    
    if (hasScores || hasOfficialRanks || hasJudgeRanks || hasAnyStatus || hasPerfs) {
@@ -649,29 +656,6 @@ function getLatestRound() {
    }
  }
  return 'PRERANK';
-}
-
-// 🔧 AIDE 3 : Calcul dynamique du nombre d'élèves pour équilibrer les points
-function getActiveCountForRound(roundId) {
-    let maxR = 0;
-    // Cherche le classement maximum donné par un juge (ex: si Aya a classé jusqu'à 20, il y a 20 élèves)
-    JUDGE_NAMES.forEach(jName => {
-        const jData = getJudgeRankingByRound(jName)[roundId] || {};
-        Object.values(jData).forEach(r => {
-            if (Number.isFinite(r) && r > maxR) maxR = r;
-        });
-    });
-    // S'il n'y a pas encore de notes, on compte le nombre mathématique de survivantes au début du round
-    if (maxR === 0) {
-       const rIdx = ROUND_ORDER.indexOf(roundId);
-       let active = 0;
-       state.data.contestants.forEach(c => {
-           const elimIdx = getFirstEliminatedRoundIndex(c.id);
-           if (elimIdx === -1 || elimIdx >= rIdx) active++;
-       });
-       return active > 0 ? active : 40;
-    }
-    return maxR;
 }
 
 function sortedContestants() {
@@ -695,6 +679,7 @@ function sortedContestants() {
      if (Number.isFinite(ar)) return -1;
      if (Number.isFinite(br)) return 1;
    }
+   // Tri de secours : ordre alphabétique
    return String(a.name || '').localeCompare(String(b.name || ''));
  });
 }
@@ -713,7 +698,6 @@ function renderContestants() {
  const perfScores = getPerformanceScoreByRound()[state.latestRound] || {};
  const judgesData = JUDGE_NAMES.map(j => getJudgeRankingByRound(j)[state.latestRound] || {});
  
- // On récupère dynamiquement la base de calcul (Ex: Si 20 élèves -> 21. Donc 1er = 21-1 = 20 pts)
  const activeCount = getActiveCountForRound(state.latestRound);
  const pointsBase = activeCount + 1;
  
@@ -740,7 +724,12 @@ function renderContestants() {
    const q = document.getElementById('searchContestant').value.toLowerCase().trim();
    const f = document.getElementById('statusFilter').value;
    const list = sortedContestants().filter(c => c.name.toLowerCase().includes(q)).filter(c => {
-     const status = getStatus(state.latestRound, c.id);
+     let status = getStatus(state.latestRound, c.id);
+     // Traite les anciennes éliminées
+     if (!status && getFirstEliminatedRoundIndex(c.id) !== -1 && getFirstEliminatedRoundIndex(c.id) <= ROUND_ORDER.indexOf(state.latestRound)) {
+         status = 'eliminated';
+     }
+     
      if (f === 'all') return true;
      if (f === 'tbd') return !status;
      return status === f || (f === 'safe' && ['winner', 'second', 'third', 'fourth', 'fifth', 'sixth', 'seventh'].includes(status)); 
@@ -750,9 +739,13 @@ function renderContestants() {
      document.getElementById('contestantsGrid').innerHTML = `<p class="small">Aucune élève trouvée.</p>`;
    } else {
      document.getElementById('contestantsGrid').innerHTML = list.map((c) => {
-       const status = getStatus(state.latestRound, c.id);
+       let status = getStatus(state.latestRound, c.id);
+       const elimRound = getFirstEliminatedRoundIndex(c.id);
+       if (!status && elimRound !== -1 && elimRound <= ROUND_ORDER.indexOf(state.latestRound)) {
+           status = 'eliminated';
+       }
+
        const rank = currentRanks[c.id];
-       
        let totalPoints = 0;
        let hasData = false;
        
@@ -764,8 +757,7 @@ function renderContestants() {
        judgesData.forEach(jData => {
            const judgeRank = jData[c.id];
            if (Number.isFinite(judgeRank) && judgeRank >= 1) {
-               // FIN DU "41" codé en dur, on utilise la base dynamique !
-               totalPoints += Math.max(0, pointsBase - judgeRank);
+               totalPoints += Math.max(0, pointsBase - judgeRank); // Calcul avec base dynamique !
                hasData = true;
            }
        });
@@ -774,9 +766,9 @@ function renderContestants() {
        const scoreDisplay = hasData ? totalPoints.toFixed(1).replace(/\.0$/, '') : '—';
        
        let eliteClass = '';
-       if (rank === 1) eliteClass = 'top1-card';
-       else if (rank === 2) eliteClass = 'top2-card';
-       else if (rank === 3) eliteClass = 'top3-card';
+       if (rank === 1 && status !== 'eliminated') eliteClass = 'top1-card';
+       else if (rank === 2 && status !== 'eliminated') eliteClass = 'top2-card';
+       else if (rank === 3 && status !== 'eliminated') eliteClass = 'top3-card';
        
        const randomRot = Math.random();
 
@@ -857,8 +849,13 @@ function renderRankings() {
  <tbody>
  ${list.map((c, idx) => `<tr><td>${idx + 1}</td><td><a href="#profile/${c.id}">${getContestantName(c.id)}</a></td>${ROUND_ORDER.map(r => { 
      const v = rankingMap[r]?.[c.id]; 
+     const elimIndex = getFirstEliminatedRoundIndex(c.id);
+     
      if (Number.isFinite(v)) return `<td>${isPerformance ? v.toFixed(1).replace(/\.0$/, '') : v}</td>`; 
-     const st = getStatus(r, c.id);
+     
+     let st = getStatus(r, c.id);
+     if (!st && elimIndex !== -1 && elimIndex <= ROUND_ORDER.indexOf(r)) st = 'eliminated';
+     
      if (st && st !== 'eliminated') return `<td><span class="pill ${statusClass(st)}" style="font-size:0.68rem; padding:0.15rem 0.5rem;">${statusLabel(st)}</span></td>`;
      if (st === 'eliminated') return `<td><span class="pill eliminated" style="font-size:0.68rem; padding:0.15rem 0.5rem;">${statusLabel('eliminated')}</span></td>`;
      return '<td>—</td>';
@@ -903,8 +900,8 @@ function renderRankings() {
    
    return { 
      label: getContestantName(c.id), 
+     // ✂️ LIGNE COUPÉE : Arrête de tracer la ligne après le round d'élimination
      data: ROUND_ORDER.map((r, rIdx) => { 
-         // ✂️ LIGNE COUPÉE : Si on dépasse le round où elle a été éliminée, on retourne null pour arrêter la ligne
          if (elimIndex !== -1 && rIdx > elimIndex) return null;
          const v = rankingMap[r]?.[c.id]; 
          return Number.isFinite(v) ? v : null; 
@@ -988,7 +985,12 @@ function renderProfile(contestantId) {
  <table>
  <thead><tr><th>${t('round')}</th><th>${t('official')}</th>${JUDGE_NAMES.map(j => `<th>${j}</th>`).join('')}<th>${t('perf_score')}</th><th>${t('status')}</th></tr></thead>
  <tbody>
- ${ROUND_ORDER.map(r => `<tr><td><strong>${getRoundLabel(r)}</strong></td><td>${official[r]?.[c.id] ?? '—'}</td>${JUDGE_NAMES.map(j => `<td>${judgesByName[j]?.[r]?.[c.id] ?? '—'}</td>`).join('')}<td>${Number.isFinite(perfScore[r]?.[c.id]) ? perfScore[r][c.id] : '—'}</td><td><span class="pill ${statusClass(getStatus(r, c.id))}">${statusLabel(getStatus(r, c.id))}</span></td></tr>`).join('')}
+ ${ROUND_ORDER.map(r => {
+     let st = getStatus(r, c.id);
+     const elimRound = getFirstEliminatedRoundIndex(c.id);
+     if (!st && elimRound !== -1 && elimRound <= ROUND_ORDER.indexOf(r)) st = 'eliminated';
+     return `<tr><td><strong>${getRoundLabel(r)}</strong></td><td>${official[r]?.[c.id] ?? '—'}</td>${JUDGE_NAMES.map(j => `<td>${judgesByName[j]?.[r]?.[c.id] ?? '—'}</td>`).join('')}<td>${Number.isFinite(perfScore[r]?.[c.id]) ? perfScore[r][c.id] : '—'}</td><td><span class="pill ${statusClass(st)}">${statusLabel(st)}</span></td></tr>`;
+ }).join('')}
  </tbody>
  </table>
  </div>
@@ -1032,7 +1034,6 @@ function renderProfile(contestantId) {
  labels: ROUND_ORDER.map(r => getRoundLabel(r)),
  datasets: [{ 
    label: getContestantName(c.id), 
-   // ✂️ LIGNE COUPÉE : Arrêt de la courbe sur le profil après élimination
    data: ROUND_ORDER.map((r, rIdx) => {
        if (elimIndex !== -1 && rIdx > elimIndex) return null;
        const v = official[r]?.[c.id]; 
