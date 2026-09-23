@@ -286,7 +286,7 @@ let currentLang = localStorage.getItem('kca_lang') || 'fr';
 function t(key) { return I18N[currentLang][key] || key; }
 
 // ==========================================
-// 2. CONFIGURATION AVEC LE NOUVEAU SHEETS ID
+// 2. CONFIGURATION DU CLASSEUR OFFICIEL
 // ==========================================
 const CONFIG = {
  SHEET_ID: "1MG4wlEm5XADSGALQdV9uBO_zF77D1AZx_DqJ5XXmGME",
@@ -301,7 +301,7 @@ const JUDGE_NAMES = ["Neitsu", "Hauras", "Heaven", "Kaina", "Aqua", "Aya"];
 const EXCLUDED_NAMES = new Set(['official_rank', 'score', 'neitsu', 'hauras', 'heaven', 'kaina', 'aqua', 'aya', 'statut', 'performance_1', 'link_to_the_performance_1', 'performance_2', 'link_to_the_performance_2', 'contestants', 'contestant', 'username', 'country', 'pronouns', 'instagram']);
 
 // ==========================================
-// 3. MOTEUR DE LECTURE CORRIGÉ (SANS PROPAGATION Fausse)
+// 3. MOTEUR DE LECTURE ROBUSTE
 // ==========================================
 function setLang(lang) {
  currentLang = lang; localStorage.setItem('kca_lang', lang);
@@ -442,6 +442,11 @@ function parseNum(val) {
  return isNaN(num) ? NaN : num;
 }
 
+// 🔧 AIDE 1 : Mémoire des éliminations
+function getFirstEliminatedRoundIndex(contestantId) {
+    return ROUND_ORDER.findIndex(round => getStatus(round, contestantId) === 'eliminated');
+}
+
 async function loadDataFromRoundTabs() {
  const rowsByRound = {};
  for (const [rid, tab] of Object.entries(CONFIG.ROUND_TABS)) { 
@@ -503,6 +508,22 @@ async function loadDataFromRoundTabs() {
    });
  });
 
+ // Propagation des éliminations : Si elle est éliminée, elle le reste pour la suite de l'affichage
+ const allIds = [...contestantsMap.keys()];
+ let lastStatusObj = {};
+ ROUND_ORDER.forEach(round => {
+     allIds.forEach(id => {
+         const existingIndex = round_status_clean.findIndex(r => r.round_id === round && r.contestant_id === id);
+         if (existingIndex >= 0) {
+             lastStatusObj[id] = round_status_clean[existingIndex].status;
+         } else {
+             if (lastStatusObj[id] === 'eliminated') {
+                 round_status_clean.push({ round_id: round, contestant_id: id, status: 'eliminated' });
+             }
+         }
+     });
+ });
+
  return { contestants: [...contestantsMap.values()], rounds: [], submissions, scores, judge_rankings, round_status: round_status_clean, votes_live: [] };
 }
 
@@ -549,13 +570,30 @@ function getStatus(roundId, contestantId) { return state.data.round_status.find(
 function statusClass(status) { return status || 'tbd'; }
 function statusLabel(status) { return status ? t(status) : t('tbd'); }
 
+// 🔧 AIDE 2 : Mémoire automatique de l'Official Rank après élimination
 function getOfficialRankingByRound() {
  const out = Object.fromEntries(ROUND_ORDER.map(r => [r, {}]));
  
+ // 1. Charge les rangs rentrés manuellement
  state.data.judge_rankings.filter(r => normalizeJudgeName(r.judge_name) === 'official').forEach(r => { 
      if (Number.isFinite(r.rank)) out[r.round_id][r.contestant_id] = r.rank; 
  });
  
+ // 2. Conserve le rang d'élimination pour le figer dans les tableaux suivants
+ state.data.contestants.forEach(c => {
+     const elimIndex = getFirstEliminatedRoundIndex(c.id);
+     if (elimIndex !== -1) {
+         const elimRound = ROUND_ORDER[elimIndex];
+         const finalRank = out[elimRound][c.id];
+         if (Number.isFinite(finalRank)) {
+             for (let i = elimIndex + 1; i < ROUND_ORDER.length; i++) {
+                 out[ROUND_ORDER[i]][c.id] = finalRank; // Mémorise la place pour tout le reste du concours
+             }
+         }
+     }
+ });
+
+ // 3. Calcule automatiquement les rangs (1, 2, 3...) pour les élèves en lice qui ont un score
  ROUND_ORDER.forEach(round => {
    const scoredCandidates = state.data.scores
        .filter(s => s.round_id === round && Number.isFinite(s.total) && !Number.isFinite(out[round][s.contestant_id]))
@@ -597,14 +635,13 @@ function getRankingMapByView(view) {
  return getOfficialRankingByRound();
 }
 
-// 🔧 DÉTECTION STRICTE : Un round n'est actif que si des données réelles y sont présentes
 function getLatestRound() {
  for (let i = ROUND_ORDER.length - 1; i >= 0; i--) {
    const round = ROUND_ORDER[i];
    const hasScores = state.data.scores.some(r => r.round_id === round && Number.isFinite(r.total));
    const hasOfficialRanks = state.data.judge_rankings.some(r => r.round_id === round && normalizeJudgeName(r.judge_name) === 'official');
    const hasJudgeRanks = state.data.judge_rankings.some(r => r.round_id === round && Number.isFinite(r.rank));
-   const hasAnyStatus = state.data.round_status.some(r => r.round_id === round && r.status !== '');
+   const hasAnyStatus = state.data.round_status.some(r => r.round_id === round && r.status !== '' && r.status !== 'eliminated');
    const hasPerfs = state.data.submissions.some(r => r.round_id === round && (r.song_title || r.youtube_url));
    
    if (hasScores || hasOfficialRanks || hasJudgeRanks || hasAnyStatus || hasPerfs) {
@@ -612,6 +649,29 @@ function getLatestRound() {
    }
  }
  return 'PRERANK';
+}
+
+// 🔧 AIDE 3 : Calcul dynamique du nombre d'élèves pour équilibrer les points
+function getActiveCountForRound(roundId) {
+    let maxR = 0;
+    // Cherche le classement maximum donné par un juge (ex: si Aya a classé jusqu'à 20, il y a 20 élèves)
+    JUDGE_NAMES.forEach(jName => {
+        const jData = getJudgeRankingByRound(jName)[roundId] || {};
+        Object.values(jData).forEach(r => {
+            if (Number.isFinite(r) && r > maxR) maxR = r;
+        });
+    });
+    // S'il n'y a pas encore de notes, on compte le nombre mathématique de survivantes au début du round
+    if (maxR === 0) {
+       const rIdx = ROUND_ORDER.indexOf(roundId);
+       let active = 0;
+       state.data.contestants.forEach(c => {
+           const elimIdx = getFirstEliminatedRoundIndex(c.id);
+           if (elimIdx === -1 || elimIdx >= rIdx) active++;
+       });
+       return active > 0 ? active : 40;
+    }
+    return maxR;
 }
 
 function sortedContestants() {
@@ -652,6 +712,10 @@ function renderContestants() {
  const currentRanks = officialByRound[state.latestRound] || {};
  const perfScores = getPerformanceScoreByRound()[state.latestRound] || {};
  const judgesData = JUDGE_NAMES.map(j => getJudgeRankingByRound(j)[state.latestRound] || {});
+ 
+ // On récupère dynamiquement la base de calcul (Ex: Si 20 élèves -> 21. Donc 1er = 21-1 = 20 pts)
+ const activeCount = getActiveCountForRound(state.latestRound);
+ const pointsBase = activeCount + 1;
  
  root.innerHTML = `
  <div class="card-paper">
@@ -700,7 +764,8 @@ function renderContestants() {
        judgesData.forEach(jData => {
            const judgeRank = jData[c.id];
            if (Number.isFinite(judgeRank) && judgeRank >= 1) {
-               totalPoints += Math.max(0, 41 - judgeRank);
+               // FIN DU "41" codé en dur, on utilise la base dynamique !
+               totalPoints += Math.max(0, pointsBase - judgeRank);
                hasData = true;
            }
        });
@@ -790,8 +855,7 @@ function renderRankings() {
  <tr><th>${isPerformance ? t('pos') : t('rank')}</th><th>${t('name')}</th>${ROUND_ORDER.map(r => `<th>${getRoundLabel(r)}</th>`).join('')}</tr>
  </thead>
  <tbody>
- ${list.map((c, idx) => `<tr><td>${idx + 1}</td><td><a href="#profile/${c.id}">${getContestantName(c.id)}</a></td>
- ${ROUND_ORDER.map(r => { 
+ ${list.map((c, idx) => `<tr><td>${idx + 1}</td><td><a href="#profile/${c.id}">${getContestantName(c.id)}</a></td>${ROUND_ORDER.map(r => { 
      const v = rankingMap[r]?.[c.id]; 
      if (Number.isFinite(v)) return `<td>${isPerformance ? v.toFixed(1).replace(/\.0$/, '') : v}</td>`; 
      const st = getStatus(r, c.id);
@@ -832,13 +896,19 @@ function renderRankings() {
  data: {
  labels: ROUND_ORDER.map(r => getRoundLabel(r)),
  datasets: state.data.contestants.map((c, idx) => {
+   const elimIndex = getFirstEliminatedRoundIndex(c.id);
    const isEliminated = getStatus(activeRound, c.id) === 'eliminated';
    const baseColor = colorForIndex(idx);
    const color = isEliminated ? baseColor.replace('hsl', 'hsla').replace(')', ', 0.35)') : baseColor;
    
    return { 
      label: getContestantName(c.id), 
-     data: ROUND_ORDER.map(r => { const v = rankingMap[r]?.[c.id]; return Number.isFinite(v) ? v : null; }), 
+     data: ROUND_ORDER.map((r, rIdx) => { 
+         // ✂️ LIGNE COUPÉE : Si on dépasse le round où elle a été éliminée, on retourne null pour arrêter la ligne
+         if (elimIndex !== -1 && rIdx > elimIndex) return null;
+         const v = rankingMap[r]?.[c.id]; 
+         return Number.isFinite(v) ? v : null; 
+     }), 
      borderColor: color, backgroundColor: color, 
      borderWidth: isEliminated ? 1 : 3, borderDash: isEliminated ? [5, 5] : [], 
      pointRadius: isEliminated ? 0 : 3, pointHoverRadius: 6, tension: .25, spanGaps: true, order: isEliminated ? 2 : 1 
@@ -931,8 +1001,7 @@ function renderProfile(contestantId) {
  ${submissions.map(s => `<tr>
  <td><strong>${getRoundLabel(s.round_id) || s.round_id}</strong></td>
  <td>
- ${s.song_title || t('tbd')}
- ${s.group_song ? `<br><span style="color:var(--muted); font-size:0.85em">${s.group_song}</span>` : ''}
+ ${s.song_title \vert{}\vert{} t('tbd')}${s.group_song ? `<br><span style="color:var(--muted); font-size:0.85em">${s.group_song}</span>` : ''}
  </td>
  <td>
  ${s.youtube_url ? `<a target="_blank" href="${s.youtube_url}">${t('link_perf')}</a>` : '—'}
@@ -954,12 +1023,23 @@ function renderProfile(contestantId) {
  </div>
  </div>`;
 
+ const elimIndex = getFirstEliminatedRoundIndex(c.id);
+
  if (profileChart) profileChart.destroy();
  profileChart = new Chart(document.getElementById('profileChart'), {
  type: 'line',
  data: {
  labels: ROUND_ORDER.map(r => getRoundLabel(r)),
- datasets: [{ label: getContestantName(c.id), data: ROUND_ORDER.map(r => official[r]?.[c.id] ?? null), borderColor: '#9CB4A6', backgroundColor: 'rgba(156, 180, 166, 0.2)', borderWidth: 3, tension: .25, spanGaps: true }]
+ datasets: [{ 
+   label: getContestantName(c.id), 
+   // ✂️ LIGNE COUPÉE : Arrêt de la courbe sur le profil après élimination
+   data: ROUND_ORDER.map((r, rIdx) => {
+       if (elimIndex !== -1 && rIdx > elimIndex) return null;
+       const v = official[r]?.[c.id]; 
+       return Number.isFinite(v) ? v : null;
+   }), 
+   borderColor: '#9CB4A6', backgroundColor: 'rgba(156, 180, 166, 0.2)', borderWidth: 3, tension: .25, spanGaps: true 
+ }]
  },
  options: {
  responsive: true,
@@ -1006,7 +1086,7 @@ function renderVotes() {
  ${rows.length ? rows.map(r => {
    const pct = totalVotes > 0 ? (r.votes / totalVotes) * 100 : 0;
    const barPct = maxVotes > 0 ? (r.votes / maxVotes) * 100 : 0;
-   return `<div class="vote-row"><div><strong style="font-family:'Playfair Display'; font-size:1.1rem;">${r.name}</strong> — ${r.votes} ${t('votes').toLowerCase()} (${pct.toFixed(1)}%)</div><div class="bar"><span style="width:${barPct}%"></span></div></div>`;
+   return `<div class="vote-row"><div><strong style="font-family:'Playfair Display'; font-size:1.1rem;">${r.name}</strong> —${r.votes} ${t('votes').toLowerCase()} (${pct.toFixed(1)}%)</div><div class="bar"><span style="width:${barPct}%"></span></div></div>`;
  }).join('') : `<p>${t('no_vote_data')}</p>${roundsWithVotes.length ? `<p class="small">${t('avail_vote_rounds')} ${roundsWithVotes.map(r => getRoundLabel(r)).join(', ')}</p>` : ''}`}
  </div>
  <p class="small" style="margin-top:2rem;">${t('total_votes')} ${totalVotes} · ${t('last_refresh')} ${new Date().toLocaleString(currentLang)}</p>
