@@ -219,6 +219,25 @@
   </style>
 </head>
 <body>
+
+<script>
+// ==========================================
+// 🛡️ SYSTÈME DE DÉTECTION D'ERREUR VISIBLE
+// ==========================================
+window.onerror = function(msg, url, line) {
+  const errDiv = document.createElement('div');
+  errDiv.style = "background:#ff4444; color:white; padding:15px; font-weight:bold; position:fixed; top:0; left:0; width:100%; z-index:9999; text-align:center;";
+  errDiv.innerHTML = `⚠️ CRASH TECHNIQUE : ${msg} (Ligne ${line}). Prends un screen de ce bandeau !`;
+  document.body.appendChild(errDiv);
+};
+window.onunhandledrejection = function(event) {
+  const errDiv = document.createElement('div');
+  errDiv.style = "background:#ff4444; color:white; padding:15px; font-weight:bold; position:fixed; top:0; left:0; width:100%; z-index:9999; text-align:center;";
+  errDiv.innerHTML = `⚠️ ERREUR RESEAU/GOOGLE : Impossible de charger l'Excel (${event.reason}).`;
+  document.body.appendChild(errDiv);
+};
+</script>
+
 <header>
   <div class="container topbar">
     <div class="brand">
@@ -253,12 +272,12 @@ const I18N = {
     tagline: "Saison 2 • Back to School", welcome_title: "Bienvenue à l'académie", nav_contestants: "Académie", nav_rankings: "Classements", nav_votes: "Votes",
     search_ph: "Rechercher une élève...", all_status: "Tous les statuts", safe: "Safe", nominee: "Zone Rouge", saved_judges: "Sauvée (Jury)", saved_public: "Sauvée (Public)", eliminated: "Éliminée", tbd: "À venir",
     winner: "GAGNANTE", second: "2ÈME", third: "3ÈME", fourth: "4ÈME", fifth: "5ÈME", sixth: "6ÈME", seventh: "7ÈME",
-    auto_updated: "Dossiers à jour après le :", no_contestants: "Aucune élève trouvée.",
+    auto_updated: "Dossiers des élèves à jour après le :", no_contestants: "Aucune élève trouvée.",
     rank: "Rang", pos: "Pos", name: "Nom", rankings_desc: "Évolution du classement de la promotion.",
     nominations: "Tableau d'affichage des statuts", nominee_lbl: "Zone Rouge", saved_judges_lbl: "Sauvée (Jury)", saved_public_lbl: "Sauvée (Public)", eliminated_lbl: "Éliminée",
     global_chart: "Graphique d'évolution", perf_score: "Score Adaptatif", official_rank: "Classement Officiel",
     back_contestants: "← Retour", contestant_not_found: "Dossier introuvable.", rounds_overview: "Bulletin de notes", round: "Round", official: "Officiel", status: "Statut",
-    performances: "Performances", song: "Chanson", links: "Liens", link_perf: "Visionner", no_links: "Aucun enregistrement.",
+    performances: "Performances Vocales", song: "Chanson", links: "Liens", link_perf: "Visionner", no_links: "Aucun enregistrement.",
     indiv_chart: "Courbe de progression", country: "Pays", pronouns: "Pronoms", instagram: "Instagram",
     votes: "Votes", vote_now: "Soutenir une élève", no_vote_data: "Aucun vote pour ce round.", avail_vote_rounds: "Rounds disponibles :", total_votes: "Total des bulletins :", last_refresh: "Dernière MAJ :",
     r_prerank: "Éval. Initiale", r_r1: "Round 1", r_r2: "Round 2", r_r3: "Round 3", r_r4: "Round 4", r_r5: "Demi-Finale", r_final: "Finale",
@@ -301,7 +320,7 @@ const JUDGE_NAMES = ["Neitsu", "Hauras", "Heaven", "Kaina", "Aqua", "Aya"];
 const EXCLUDED_NAMES = new Set(['official_rank', 'score', 'neitsu', 'hauras', 'heaven', 'kaina', 'aqua', 'aya', 'statut', 'performance_1', 'link_to_the_performance_1', 'performance_2', 'link_to_the_performance_2', 'contestants', 'contestant', 'username', 'country', 'pronouns', 'instagram']);
 
 // ==========================================
-// 3. MOTEUR DE LECTURE OFFICIEL
+// 3. MOTEUR DE LECTURE OFFICIEL CSV
 // ==========================================
 function setLang(lang) {
  currentLang = lang; localStorage.setItem('kca_lang', lang);
@@ -359,55 +378,70 @@ function handleImageFallback(img) {
  img.src = 'https://images.unsplash.com/photo-1517841905240-472988babdf9?ixlib=rb-1.2.1&auto=format&fit=crop&w=300&q=80'; 
 }
 
+function parseCSV(text) {
+  const rows = [];
+  let row = [];
+  let inQuotes = false;
+  let val = "";
+  for (let i = 0; i < text.length; i++) {
+    const char = text[i];
+    if (inQuotes) {
+      if (char === '"') {
+        if (text[i + 1] === '"') { val += '"'; i++; } else { inQuotes = false; }
+      } else { val += char; }
+    } else {
+      if (char === '"') { inQuotes = true; }
+      else if (char === ',') { row.push(val); val = ""; }
+      else if (char === '\n' || char === '\r') {
+        row.push(val); rows.push(row); row = []; val = "";
+        if (char === '\r' && text[i + 1] === '\n') i++;
+      } else { val += char; }
+    }
+  }
+  if (val !== "" || row.length > 0) { row.push(val); rows.push(row); }
+  if (rows.length < 1) return [];
+  
+  let headerIndex = 0;
+  for(let i=0; i<Math.min(5, rows.length); i++){
+     if(rows[i].some(c => typeof c === 'string' && ['contestant', 'name', 'candidat', 'eleve', 'username'].some(k => c.toLowerCase().includes(k)))) {
+         headerIndex = i;
+         break;
+     }
+  }
+  
+  const headers = rows[headerIndex].map(h => String(h).trim().toLowerCase());
+  return rows.slice(headerIndex + 1).map(r => {
+    const obj = {};
+    headers.forEach((h, i) => { if(h) obj[h] = r[i] !== undefined ? String(r[i]).trim() : ''; });
+    return obj;
+  });
+}
+
 async function fetchSheetTab(sheetName, customSheetId = null) {
  const targetId = customSheetId || CONFIG.SHEET_ID;
  if (!targetId) return []; 
  
- const sheetParam = sheetName ? `&sheet=${encodeURIComponent(sheetName)}` : '';
- const url = `https://docs.google.com/spreadsheets/d/${targetId}/gviz/tq?tqx=out:json${sheetParam}&_=${Date.now()}`;
- 
- try {
+ const tryFetch = async (name) => {
+   const url = `https://docs.google.com/spreadsheets/d/${targetId}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(name)}&_=${Date.now()}`;
+   try {
      const response = await fetch(url);
+     if (!response.ok) return null;
      const txt = await response.text();
-     const m = txt.match(/google\.visualization\.Query\.setResponse\((.*)\);/s);
-     if (!m) return []; 
-     const json = JSON.parse(m[1]);
-     if (json.status === 'error') return [];
-     
-     const rows = json.table.rows || [];
-     if (rows.length === 0) return [];
-     
-     let cols = (json.table.cols || []).map(c => c ? (c.label || c.id || '') : '');
-     
-     let headerIndex = -1;
-     for (let i = 0; i < Math.min(5, rows.length); i++) {
-         if (rows[i] && rows[i].c && rows[i].c.some(cell => cell && typeof cell.v === 'string' && 
-             ['contestants', 'name', 'candidat'].some(k => cell.v.toLowerCase().includes(k)))) {
-             headerIndex = i;
-             break;
-         }
-     }
-     
-     let dataRows = rows;
-     if (headerIndex >= 0) {
-         cols = rows[headerIndex].c.map((cell, i) => {
-             if (cell && cell.v !== null && cell.v !== '') return String(cell.v).trim();
-             return cols[i];
-         });
-         dataRows = rows.slice(headerIndex + 1);
-     }
-     
-     const cleanedCols = cols.map(c => c ? c.toLowerCase().trim() : '');
+     if (txt.toLowerCase().includes('<!doctype html>')) return null;
+     return parseCSV(txt);
+   } catch (e) { return null; }
+ };
 
-     return dataRows.map(r => {
-         const rowObj = {};
-         cleanedCols.forEach((colName, i) => { 
-             if (!colName) return;
-             rowObj[colName] = (r && r.c && r.c[i] && r.c[i].v !== null && r.c[i].v !== undefined) ? r.c[i].v : ''; 
-         });
-         return rowObj;
-     });
- } catch (e) { return []; }
+ let data = await tryFetch(sheetName);
+ if (!data) data = await tryFetch(sheetName.toLowerCase());
+ if (!data) data = await tryFetch(sheetName + ' ');
+ if (!data && sheetName.match(/^R\d$/)) {
+     const num = sheetName.replace('R', '');
+     data = await tryFetch(`Round ${num}`) || await tryFetch(`Round_${num}`) || await tryFetch(`ROUND ${num}`) || await tryFetch(`R${num} `);
+ }
+ if (!data && sheetName === 'R6') data = await tryFetch('FINAL') || await tryFetch('Finale') || await tryFetch('FINALE');
+ 
+ return data || [];
 }
 
 async function fetchOptionalSheetTab(sheetName, customSheetId = null) { return await fetchSheetTab(sheetName, customSheetId); }
@@ -428,24 +462,25 @@ function parseNum(val) {
 }
 
 // ==========================================
-// 4. ALGORITHMES DE SVS INTELLIGENTS
+// 4. ALGORITHMES INTELLIGENTS DE SURVIVAL SVS
 // ==========================================
 
 function getStatus(roundId, contestantId) { return state.data.round_status.find(r => r.round_id === roundId && r.contestant_id === contestantId)?.status || ''; }
 function statusClass(status) { return status || 'tbd'; }
 function statusLabel(status) { return status ? t(status) : t('tbd'); }
 
-// Mémoire : Identifie instantanément à quel round l'élève a été éliminée (pour couper son graphe)
+// Mémoire : Trouver à quel round la candidate a été éliminée (pour couper son graphe)
 function getFirstEliminatedRoundIndex(contestantId) {
     return ROUND_ORDER.findIndex(round => getStatus(round, contestantId) === 'eliminated');
 }
 
-// Barème Adaptatif : Compte combien d'élèves n'ont pas encore été éliminées au début d'un round donné
+// 🧮 LE BARÈME DYNAMIQUE (Compte le nombre de candidates en jeu)
 function getActiveCountForRound(roundId) {
     const rIdx = ROUND_ORDER.indexOf(roundId);
     let count = 0;
     state.data.contestants.forEach(c => {
         const elimIdx = getFirstEliminatedRoundIndex(c.id);
+        // Si elle n'a jamais été éliminée, OU si elle a été éliminée PENDANT ce round ou PLUS TARD, elle compte !
         if (elimIdx === -1 || elimIdx >= rIdx) {
             count++;
         }
@@ -453,13 +488,12 @@ function getActiveCountForRound(roundId) {
     return count > 0 ? count : 40;
 }
 
-// Calcule mathématiquement le score selon le nombre d'élèves en lice
 function getPerformanceScoreByRound() {
     const out = Object.fromEntries(ROUND_ORDER.map(r => [r, {}]));
     
     ROUND_ORDER.forEach(round => {
         const activeCount = getActiveCountForRound(round);
-        const pointsBase = activeCount + 1; 
+        const pointsBase = activeCount + 1; // Si 34 filles actives -> 35. Le 1er prend 35 - 1 = 34 pts !
         
         state.data.contestants.forEach(c => {
             let totalPoints = 0;
@@ -474,7 +508,7 @@ function getPerformanceScoreByRound() {
             JUDGE_NAMES.forEach(jn => {
                 const jRankRec = state.data.judge_rankings.find(r => r.round_id === round && r.contestant_id === c.id && normalizeJudgeName(r.judge_name) === normalizeJudgeName(jn));
                 if (jRankRec && Number.isFinite(jRankRec.rank) && jRankRec.rank >= 1) {
-                    totalPoints += Math.max(0, pointsBase - jRankRec.rank); 
+                    totalPoints += Math.max(0, pointsBase - jRankRec.rank); // Calcul 100% Adaptatif
                     hasData = true;
                 }
             });
@@ -487,30 +521,16 @@ function getPerformanceScoreByRound() {
     return out;
 }
 
-// Compile le Classement Officiel + Mémoire des rangs passés
+// 🎢 LE "GLISSEMENT" HISTORIQUE (Réattribue la place en bas de tableau)
 function getOfficialRankingByRound() {
     const out = Object.fromEntries(ROUND_ORDER.map(r => [r, {}]));
     
-    // 1. Rangs rentrés manuellement
+    // 1. Enregistre les rangs fixes (ex: les premières éliminées au R1)
     state.data.judge_rankings.filter(r => normalizeJudgeName(r.judge_name) === 'official').forEach(r => { 
         if (Number.isFinite(r.rank)) out[r.round_id][r.contestant_id] = r.rank; 
     });
-    
-    // 2. Mémorise et fige le rang de l'élève pour le reste de la saison après son élimination
-    state.data.contestants.forEach(c => {
-        const elimIndex = getFirstEliminatedRoundIndex(c.id);
-        if (elimIndex !== -1) {
-            const elimRound = ROUND_ORDER[elimIndex];
-            const finalRank = out[elimRound][c.id];
-            if (Number.isFinite(finalRank)) {
-                for (let i = elimIndex + 1; i < ROUND_ORDER.length; i++) {
-                    out[ROUND_ORDER[i]][c.id] = finalRank; 
-                }
-            }
-        }
-    });
 
-    // 3. Trie les survivantes automatiquement selon les scores dynamiques du R1, R2, R3...
+    // 2. Calcule automatiquement le rang des filles "actives" selon les points
     const perfScoresByRound = getPerformanceScoreByRound();
     ROUND_ORDER.forEach(round => {
         const perfScores = perfScoresByRound[round];
@@ -518,10 +538,43 @@ function getOfficialRankingByRound() {
         
         scoredIds.sort((a, b) => perfScores[b] - perfScores[a]);
         
+        let usedRanks = new Set(Object.values(out[round]));
         let autoRank = 1;
         scoredIds.forEach((id) => {
-            out[round][id] = autoRank++;
+            while(usedRanks.has(autoRank)) autoRank++; // Évite d'écraser un rang manuel
+            out[round][id] = autoRank;
+            usedRanks.add(autoRank);
         });
+    });
+
+    // 3. Le GLISSEMENT : Reprend toutes les anciennes éliminées et les décale vers le bas
+    ROUND_ORDER.forEach((round, k) => {
+        // Sélectionne les filles éliminées AVANT ce round
+        const alreadyDead = state.data.contestants.filter(c => {
+            const elimIdx = getFirstEliminatedRoundIndex(c.id);
+            return elimIdx !== -1 && elimIdx < k; 
+        });
+
+        if (alreadyDead.length > 0) {
+            // Trie les mortes d'abord par le round de leur mort, puis par leur rang lors de ce round
+            alreadyDead.sort((a, b) => {
+                const elimIdxA = getFirstEliminatedRoundIndex(a.id);
+                const elimIdxB = getFirstEliminatedRoundIndex(b.id);
+                if (elimIdxA !== elimIdxB) return elimIdxA - elimIdxB;
+
+                const rankA = out[ROUND_ORDER[elimIdxA]][a.id] || 999;
+                const rankB = out[ROUND_ORDER[elimIdxB]][b.id] || 999;
+                return rankA - rankB;
+            });
+
+            // Combien de filles sont VIVANTES dans ce round (ou éliminées PENDANT ce round)
+            const activeCount = state.data.contestants.length - alreadyDead.length;
+
+            // Assigne aux mortes les places du fond du classement ! (Ex: Si 32 actives, les 8 mortes prennent de 33 à 40)
+            alreadyDead.forEach((deadC, idx) => {
+                out[round][deadC.id] = activeCount + 1 + idx;
+            });
+        }
     });
     
     return out;
@@ -586,22 +639,6 @@ async function loadDataFromRoundTabs() {
        if (Number.isFinite(val)) judge_rankings.push({ round_id, judge_name: jn, contestant_id: id, rank: val });
      });
    });
- });
-
- // Propage le statut d'élimination de la candidate pour tous les rounds à venir.
- const allIds = [...contestantsMap.keys()];
- let lastStatusObj = {};
- ROUND_ORDER.forEach(round => {
-     allIds.forEach(id => {
-         const existingIndex = round_status_clean.findIndex(r => r.round_id === round && r.contestant_id === id);
-         if (existingIndex >= 0) {
-             lastStatusObj[id] = round_status_clean[existingIndex].status;
-         } else {
-             if (lastStatusObj[id] === 'eliminated') {
-                 round_status_clean.push({ round_id: round, contestant_id: id, status: 'eliminated' });
-             }
-         }
-     });
  });
 
  return { contestants: [...contestantsMap.values()], rounds: [], submissions, scores, judge_rankings, round_status: round_status_clean, votes_live: [] };
@@ -687,24 +724,20 @@ function getLatestRound() {
 function sortedContestants() {
  const officialByRound = getOfficialRankingByRound();
  const current = officialByRound[state.latestRound] || {};
- const hasActiveRanks = state.data.contestants.some(c => {
-   const isElim = getStatus(state.latestRound, c.id) === 'eliminated';
-   return !isElim && Number.isFinite(current[c.id]);
- });
 
  return [...state.data.contestants].sort((a, b) => {
-   const aStatus = getStatus(state.latestRound, a.id);
-   const bStatus = getStatus(state.latestRound, b.id);
-   const aElim = aStatus === 'eliminated' ? 1 : 0;
-   const bElim = bStatus === 'eliminated' ? 1 : 0;
+   // Les candidates ACTIVES d'abord
+   const aElim = getStatus(state.latestRound, a.id) === 'eliminated' ? 1 : 0;
+   const bElim = getStatus(state.latestRound, b.id) === 'eliminated' ? 1 : 0;
    if (aElim !== bElim) return aElim - bElim;
 
-   if (hasActiveRanks) {
-     const ar = current[a.id], br = current[b.id];
-     if (Number.isFinite(ar) && Number.isFinite(br)) return ar - br;
-     if (Number.isFinite(ar)) return -1;
-     if (Number.isFinite(br)) return 1;
-   }
+   // Si elles ont le même statut, on trie par leur Rang Officiel (qui existe pour tout le monde grâce au Glissement)
+   const ar = current[a.id];
+   const br = current[b.id];
+   if (Number.isFinite(ar) && Number.isFinite(br)) return ar - br;
+   if (Number.isFinite(ar)) return -1;
+   if (Number.isFinite(br)) return 1;
+
    return String(a.name || '').localeCompare(String(b.name || ''));
  });
 }
@@ -760,7 +793,7 @@ function renderContestants() {
        const rank = currentRanks[c.id];
        const finalScore = perfScores[c.id];
        
-       const rankDisplay = Number.isFinite(rank) ? 'RANK #' + rank : (status === 'eliminated' ? 'ÉLIMINÉE' : 'EN COURS');
+       const rankDisplay = Number.isFinite(rank) ? 'RANK #' + rank : 'EN COURS';
        
        let scoreDisplay = '—';
        if (Number.isFinite(finalScore)) {
@@ -802,24 +835,18 @@ function renderRankings() {
  
  const activeRound = state.selectedRankingsRound || state.latestRound;
  const activeRoundIndex = Math.max(0, ROUND_ORDER.indexOf(activeRound));
- 
- const hasActiveRanks = state.data.contestants.some(c => {
-   const isElim = getStatus(activeRound, c.id) === 'eliminated';
-   return !isElim && Number.isFinite(rankingMap[activeRound]?.[c.id]);
- });
 
  const list = [...state.data.contestants].sort((a, b) => {
    const aElim = getStatus(activeRound, a.id) === 'eliminated' ? 1 : 0;
    const bElim = getStatus(activeRound, b.id) === 'eliminated' ? 1 : 0;
    if (aElim !== bElim) return aElim - bElim;
 
-   if (hasActiveRanks) {
-     const va = rankingMap[activeRound]?.[a.id]; 
-     const vb = rankingMap[activeRound]?.[b.id];
-     if (Number.isFinite(va) && Number.isFinite(vb)) { return isPerformance ? vb - va : va - vb; }
-     if (Number.isFinite(va)) return -1; 
-     if (Number.isFinite(vb)) return 1;
-   }
+   const va = rankingMap[activeRound]?.[a.id]; 
+   const vb = rankingMap[activeRound]?.[b.id];
+   if (Number.isFinite(va) && Number.isFinite(vb)) { return isPerformance ? vb - va : va - vb; }
+   if (Number.isFinite(va)) return -1; 
+   if (Number.isFinite(vb)) return 1;
+   
    return String(a.name || '').localeCompare(String(b.name || ''));
  });
 
@@ -841,9 +868,14 @@ function renderRankings() {
          const elimIndex = getFirstEliminatedRoundIndex(c.id);
          const isDeadInTable = elimIndex !== -1 && elimIndex < ROUND_ORDER.indexOf(r);
          
+         let displayStr = '—';
          if (Number.isFinite(v)) {
-             const displayV = (isPerformance && v % 1 !== 0) ? v.toFixed(1) : v;
-             return '<td>' + displayV + '</td>';
+             displayStr = (isPerformance && v % 1 !== 0) ? v.toFixed(1) : v;
+             // Ajoute un badge "ÉLIMINÉE" discret à côté du rang glissé
+             if (!isPerformance && isDeadInTable) {
+                 return '<td><span style="color:var(--muted);">' + displayStr + '</span> <span class="pill eliminated" style="font-size:0.55rem; padding:0.1rem 0.3rem; margin-left:4px;">ÉLIMINÉE</span></td>';
+             }
+             return '<td>' + displayStr + '</td>';
          }
          
          let st = getStatus(r, c.id);
@@ -1044,7 +1076,7 @@ function renderProfile(contestantId) {
  labels: ROUND_ORDER.map(r => getRoundLabel(r)),
  datasets: [{ 
    label: getContestantName(c.id), 
-   // LIGNE COUPÉE : Arrête de tracer la ligne sur le profil individuel après l'élimination !
+   // LIGNE COUPÉE SUR LE GRAPH INDIVIDUEL
    data: ROUND_ORDER.map((r, rIdx) => {
        if (elimIndex !== -1 && rIdx > elimIndex) return null;
        const v = official[r]?.[c.id]; 
