@@ -256,7 +256,7 @@ const I18N = {
     auto_updated: "Dossiers des élèves à jour après le :", no_contestants: "Aucune élève trouvée.",
     rank: "Rang", pos: "Pos", name: "Nom", rankings_desc: "Évolution du classement de la promotion.",
     nominations: "Tableau d'affichage des statuts", nominee_lbl: "Zone Rouge", saved_judges_lbl: "Sauvée (Jury)", saved_public_lbl: "Sauvée (Public)", eliminated_lbl: "Éliminée",
-    global_chart: "Graphique d'évolution de la promotion", perf_score: "Score Vocal", official_rank: "Classement Officiel",
+    global_chart: "Graphique d'évolution de la promotion", perf_score: "Score Total", official_rank: "Classement Officiel",
     back_contestants: "← Retour au Tableau", contestant_not_found: "Dossier élève introuvable.", rounds_overview: "Bulletin de notes", round: "Round", official: "Officiel", status: "Statut",
     performances: "Performances Vocales", song: "Chanson", links: "Liens", link_perf: "Visionner", no_links: "Aucun enregistrement.",
     indiv_chart: "Courbe de progression", country: "Pays", pronouns: "Pronoms", instagram: "Instagram",
@@ -271,7 +271,7 @@ const I18N = {
     auto_updated: "Student files updated after:", no_contestants: "No student found.",
     rank: "Rank", pos: "Pos", name: "Name", rankings_desc: "Class ranking trajectory.",
     nominations: "Status Notice Board", nominee_lbl: "Red Zone", saved_judges_lbl: "Saved (Jury)", saved_public_lbl: "Saved (Public)", eliminated_lbl: "Eliminated",
-    global_chart: "Global class evolution", perf_score: "Vocal Score", official_rank: "Official Rank",
+    global_chart: "Global class evolution", perf_score: "Total Score", official_rank: "Official Rank",
     back_contestants: "← Back to Board", contestant_not_found: "Student file not found.", rounds_overview: "Report Card", round: "Round", official: "Official", status: "Status",
     performances: "Vocal Performances", song: "Song", links: "Links", link_perf: "Watch", no_links: "No records yet.",
     indiv_chart: "Student progression curve", country: "Country", pronouns: "Pronouns", instagram: "Instagram",
@@ -286,7 +286,7 @@ let currentLang = localStorage.getItem('kca_lang') || 'fr';
 function t(key) { return I18N[currentLang][key] || key; }
 
 // ==========================================
-// 2. CONFIGURATION AVEC LE NOUVEAU SHEETS ID
+// 2. CONFIGURATION DU CLASSEUR
 // ==========================================
 const CONFIG = {
  SHEET_ID: "1MG4wlEm5XADSGALQdV9uBO_zF77D1AZx_DqJ5XXmGME",
@@ -301,7 +301,7 @@ const JUDGE_NAMES = ["Neitsu", "Hauras", "Heaven", "Kaina", "Aqua", "Aya"];
 const EXCLUDED_NAMES = new Set(['official_rank', 'score', 'neitsu', 'hauras', 'heaven', 'kaina', 'aqua', 'aya', 'statut', 'performance_1', 'link_to_the_performance_1', 'performance_2', 'link_to_the_performance_2', 'contestants', 'contestant', 'username', 'country', 'pronouns', 'instagram']);
 
 // ==========================================
-// 3. MOTEUR CSV BRUT (ANTI-PLANTAGE GOOGLE)
+// 3. MOTEUR DE LECTURE OFFICIEL (SANS PLANTAGE)
 // ==========================================
 function setLang(lang) {
  currentLang = lang; localStorage.setItem('kca_lang', lang);
@@ -359,70 +359,57 @@ function handleImageFallback(img) {
  img.src = 'https://images.unsplash.com/photo-1517841905240-472988babdf9?ixlib=rb-1.2.1&auto=format&fit=crop&w=300&q=80'; 
 }
 
-function parseCSV(text) {
-  const rows = [];
-  let row = [];
-  let inQuotes = false;
-  let val = "";
-  for (let i = 0; i < text.length; i++) {
-    const char = text[i];
-    if (inQuotes) {
-      if (char === '"') {
-        if (text[i + 1] === '"') { val += '"'; i++; } else { inQuotes = false; }
-      } else { val += char; }
-    } else {
-      if (char === '"') { inQuotes = true; }
-      else if (char === ',') { row.push(val); val = ""; }
-      else if (char === '\n' || char === '\r') {
-        row.push(val); rows.push(row); row = []; val = "";
-        if (char === '\r' && text[i + 1] === '\n') i++;
-      } else { val += char; }
-    }
-  }
-  if (val !== "" || row.length > 0) { row.push(val); rows.push(row); }
-  if (rows.length < 1) return [];
-  
-  let headerIndex = 0;
-  for(let i=0; i<Math.min(5, rows.length); i++){
-     if(rows[i].some(c => typeof c === 'string' && ['contestant', 'name', 'candidat', 'eleve', 'username'].some(k => c.toLowerCase().includes(k)))) {
-         headerIndex = i;
-         break;
-     }
-  }
-  
-  const headers = rows[headerIndex].map(h => String(h).trim().toLowerCase());
-  return rows.slice(headerIndex + 1).map(r => {
-    const obj = {};
-    headers.forEach((h, i) => { if(h) obj[h] = r[i] !== undefined ? String(r[i]).trim() : ''; });
-    return obj;
-  });
-}
-
+// LECTEUR JSON RÉPARÉ : Insensible aux colonnes vides !
 async function fetchSheetTab(sheetName, customSheetId = null) {
  const targetId = customSheetId || CONFIG.SHEET_ID;
  if (!targetId) return []; 
  
- const tryFetch = async (name) => {
-   const url = `https://docs.google.com/spreadsheets/d/${targetId}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(name)}&_=${Date.now()}`;
-   try {
-     const response = await fetch(url);
-     if (!response.ok) return null;
-     const txt = await response.text();
-     if (txt.toLowerCase().includes('<!doctype html>')) return null;
-     return parseCSV(txt);
-   } catch (e) { return null; }
- };
-
- let data = await tryFetch(sheetName);
- if (!data) data = await tryFetch(sheetName.toLowerCase());
- if (!data) data = await tryFetch(sheetName + ' ');
- if (!data && sheetName.match(/^R\d$/)) {
-     const num = sheetName.replace('R', '');
-     data = await tryFetch(`Round ${num}`) || await tryFetch(`Round_${num}`) || await tryFetch(`ROUND ${num}`) || await tryFetch(`R${num} `);
- }
- if (!data && sheetName === 'R6') data = await tryFetch('FINAL') || await tryFetch('Finale') || await tryFetch('FINALE');
+ const sheetParam = sheetName ? `&sheet=${encodeURIComponent(sheetName)}` : '';
+ const url = `https://docs.google.com/spreadsheets/d/${targetId}/gviz/tq?tqx=out:json${sheetParam}&_=${Date.now()}`;
  
- return data || [];
+ try {
+     const response = await fetch(url);
+     const txt = await response.text();
+     const m = txt.match(/google\.visualization\.Query\.setResponse\((.*)\);/s);
+     if (!m) return []; 
+     const json = JSON.parse(m[1]);
+     if (json.status === 'error') return [];
+     
+     const rows = json.table.rows || [];
+     if (rows.length === 0) return [];
+     
+     let cols = (json.table.cols || []).map(c => c ? (c.label || c.id || '') : '');
+     
+     // Scanner les premières lignes pour trouver le vrai titre des colonnes
+     let headerIndex = -1;
+     for (let i = 0; i < Math.min(5, rows.length); i++) {
+         if (rows[i] && rows[i].c && rows[i].c.some(cell => cell && typeof cell.v === 'string' && 
+             ['contestants', 'name', 'candidat', 'statut'].some(k => cell.v.toLowerCase().includes(k)))) {
+             headerIndex = i;
+             break;
+         }
+     }
+     
+     let dataRows = rows;
+     if (headerIndex >= 0) {
+         cols = rows[headerIndex].c.map((cell, i) => {
+             if (cell && cell.v !== null && cell.v !== '') return String(cell.v).trim();
+             return cols[i];
+         });
+         dataRows = rows.slice(headerIndex + 1);
+     }
+     
+     const cleanedCols = cols.map(c => c ? c.toLowerCase().trim() : '');
+
+     return dataRows.map(r => {
+         const rowObj = {};
+         cleanedCols.forEach((colName, i) => { 
+             if (!colName) return;
+             rowObj[colName] = (r && r.c && r.c[i] && r.c[i].v !== null && r.c[i].v !== undefined) ? r.c[i].v : ''; 
+         });
+         return rowObj;
+     });
+ } catch (e) { return []; }
 }
 
 async function fetchOptionalSheetTab(sheetName, customSheetId = null) { return await fetchSheetTab(sheetName, customSheetId); }
@@ -432,7 +419,7 @@ function pickValue(row, aliases) {
  for (const a of aliases) {
    const n = keyNorm(a); 
    const real = keys.find(k => keyNorm(k) === n);
-   if (real != null && row[real] !== null && row[real] !== undefined && row[real] !== '') return row[real];
+   if (real != null && row[real] !== null && row[real] !== undefined && String(row[real]).trim() !== '' && String(row[real]).toLowerCase() !== 'nan') return row[real];
  }
  return '';
 }
@@ -442,10 +429,7 @@ function parseNum(val) {
  return isNaN(num) ? NaN : num;
 }
 
-function getStatus(roundId, contestantId) { return state.data.round_status.find(r => r.round_id === roundId && r.contestant_id === contestantId)?.status || ''; }
-function statusClass(status) { return status || 'tbd'; }
-function statusLabel(status) { return status ? t(status) : t('tbd'); }
-
+// OUTIL AIDE 1 : Mémoire des Éliminées
 function getFirstEliminatedRoundIndex(contestantId) {
     return ROUND_ORDER.findIndex(round => getStatus(round, contestantId) === 'eliminated');
 }
@@ -511,6 +495,22 @@ async function loadDataFromRoundTabs() {
    });
  });
 
+ // Propage le statut d'élimination de la candidate pour tous les rounds à venir.
+ const allIds = [...contestantsMap.keys()];
+ let lastStatusObj = {};
+ ROUND_ORDER.forEach(round => {
+     allIds.forEach(id => {
+         const existingIndex = round_status_clean.findIndex(r => r.round_id === round && r.contestant_id === id);
+         if (existingIndex >= 0) {
+             lastStatusObj[id] = round_status_clean[existingIndex].status;
+         } else {
+             if (lastStatusObj[id] === 'eliminated') {
+                 round_status_clean.push({ round_id: round, contestant_id: id, status: 'eliminated' });
+             }
+         }
+     });
+ });
+
  return { contestants: [...contestantsMap.values()], rounds: [], submissions, scores, judge_rankings, round_status: round_status_clean, votes_live: [] };
 }
 
@@ -553,61 +553,43 @@ function normalizeData() {
  d.contestants = [...contestantsById.values()];
 }
 
-// 🔧 MÉCANIQUE DES POINTS DYNAMIQUE
+function getStatus(roundId, contestantId) { return state.data.round_status.find(r => r.round_id === roundId && r.contestant_id === contestantId)?.status || ''; }
+function statusClass(status) { return status || 'tbd'; }
+function statusLabel(status) { return status ? t(status) : t('tbd'); }
+
+// OUTIL AIDE 2 : Calcul dynamique des élèves en lice (Permet d'ajuster le barème des points)
 function getActiveCountForRound(roundId) {
-    let maxR = 0;
-    // Scanne les rangs de tous les juges pour trouver le plus grand
-    JUDGE_NAMES.forEach(jName => {
-        const jData = getJudgeRankingByRound(jName)[roundId] || {};
-        Object.values(jData).forEach(r => {
-            if (Number.isFinite(r) && r > maxR) maxR = r;
-        });
+    const rIdx = ROUND_ORDER.indexOf(roundId);
+    let count = 0;
+    state.data.contestants.forEach(c => {
+        const elimIdx = getFirstEliminatedRoundIndex(c.id);
+        // La candidate est active si elle n'a JAMAIS été éliminée OU si elle l'a été lors de CE round ou PLUS TARD
+        if (elimIdx === -1 || elimIdx >= rIdx) {
+            count++;
+        }
     });
-    // Si aucun rang n'a été donné, on calcule le nombre mathématique de survivantes 
-    if (maxR === 0) {
-       const rIdx = ROUND_ORDER.indexOf(roundId);
-       let active = 0;
-       state.data.contestants.forEach(c => {
-           const elimIdx = getFirstEliminatedRoundIndex(c.id);
-           if (elimIdx === -1 || elimIdx >= rIdx) active++;
-       });
-       return active > 0 ? active : 40;
-    }
-    return maxR;
+    return count > 0 ? count : 40;
 }
 
-// 🔧 MÉMOIRE PERMANENTE DES RANGS DES ÉLIMINÉES
 function getOfficialRankingByRound() {
  const out = Object.fromEntries(ROUND_ORDER.map(r => [r, {}]));
  
- // 1. On charge les rangs existants (ex: 27, 28)
+ // 1. Enregistre les rangs fixes entrés dans le tableur (ex: 27, 28)
  state.data.judge_rankings.filter(r => normalizeJudgeName(r.judge_name) === 'official').forEach(r => { 
      if (Number.isFinite(r.rank)) out[r.round_id][r.contestant_id] = r.rank; 
  });
  
- // 2. On propage le rang d'une éliminée à tous les rounds futurs (pour qu'elle reste 27e)
- state.data.contestants.forEach(c => {
-     const elimIndex = getFirstEliminatedRoundIndex(c.id);
-     if (elimIndex !== -1) {
-         const elimRound = ROUND_ORDER[elimIndex];
-         const finalRank = out[elimRound][c.id];
-         if (Number.isFinite(finalRank)) {
-             for (let i = elimIndex + 1; i < ROUND_ORDER.length; i++) {
-                 out[ROUND_ORDER[i]][c.id] = finalRank; 
-             }
-         }
-     }
- });
-
- // 3. On calcule le rang des survivantes selon leur score dynamique
+ // 2. Calcule automatiquement le rang des élèves qui ont des "Total Scores" (les 1ères places)
+ const perfScoresByRound = getPerformanceScoreByRound();
  ROUND_ORDER.forEach(round => {
-   const scoredCandidates = state.data.scores
-       .filter(s => s.round_id === round && Number.isFinite(s.total) && !Number.isFinite(out[round][s.contestant_id]))
-       .sort((a, b) => b.total - a.total);
+   const perfScores = perfScoresByRound[round];
+   const scoredIds = Object.keys(perfScores).filter(id => !Number.isFinite(out[round][id]));
+   
+   scoredIds.sort((a, b) => perfScores[b] - perfScores[a]);
        
    let autoRank = 1;
-   scoredCandidates.forEach((s) => {
-       out[round][s.contestant_id] = autoRank++;
+   scoredIds.forEach((id) => {
+       out[round][id] = autoRank++;
    });
  });
  return out;
@@ -620,9 +602,37 @@ function getJudgeRankingByRound(judgeName) {
  return out;
 }
 
+// OUTIL AIDE 3 : Calcul mathématique exact des Scores Totaux !
 function getPerformanceScoreByRound() {
  const out = Object.fromEntries(ROUND_ORDER.map(r => [r, {}]));
- state.data.scores.forEach(s => { if (Number.isFinite(s.total)) out[s.round_id][s.contestant_id] = s.total; });
+ 
+ ROUND_ORDER.forEach(round => {
+     const activeCount = getActiveCountForRound(round);
+     const pointsBase = activeCount + 1; // Ex: si 20 élèves, base de 21 pour que le 1er juge donne 20pts
+     
+     state.data.contestants.forEach(c => {
+         let totalPoints = 0;
+         let hasData = false;
+         
+         const rawScoreRec = state.data.scores.find(s => s.round_id === round && s.contestant_id === c.id);
+         if (rawScoreRec && Number.isFinite(rawScoreRec.total)) {
+             totalPoints += rawScoreRec.total;
+             hasData = true;
+         }
+         
+         JUDGE_NAMES.forEach(jn => {
+             const jRankRec = state.data.judge_rankings.find(r => r.round_id === round && r.contestant_id === c.id && normalizeJudgeName(r.judge_name) === normalizeJudgeName(jn));
+             if (jRankRec && Number.isFinite(jRankRec.rank) && jRankRec.rank >= 1) {
+                 totalPoints += Math.max(0, pointsBase - jRankRec.rank); // Utilisation de la base dynamique !
+                 hasData = true;
+             }
+         });
+         
+         if (hasData) {
+             out[round][c.id] = totalPoints;
+         }
+     });
+ });
  return out;
 }
 
@@ -647,8 +657,8 @@ function getLatestRound() {
    const hasScores = state.data.scores.some(r => r.round_id === round && Number.isFinite(r.total));
    const hasOfficialRanks = state.data.judge_rankings.some(r => r.round_id === round && normalizeJudgeName(r.judge_name) === 'official');
    const hasJudgeRanks = state.data.judge_rankings.some(r => r.round_id === round && Number.isFinite(r.rank));
-   // Détecte si le round est actif, MEME s'il n'y a que des statuts (Safe/Nominee/etc.)
-   const hasAnyStatus = state.data.round_status.some(r => r.round_id === round && r.status !== '');
+   // On ignore les éliminés fantômes propagés par le code pour ne pas déclencher les rounds vides
+   const hasAnyStatus = state.data.round_status.some(r => r.round_id === round && r.status !== '' && r.status !== 'eliminated');
    const hasPerfs = state.data.submissions.some(r => r.round_id === round && (r.song_title || r.youtube_url));
    
    if (hasScores || hasOfficialRanks || hasJudgeRanks || hasAnyStatus || hasPerfs) {
@@ -679,7 +689,6 @@ function sortedContestants() {
      if (Number.isFinite(ar)) return -1;
      if (Number.isFinite(br)) return 1;
    }
-   // Tri de secours : ordre alphabétique
    return String(a.name || '').localeCompare(String(b.name || ''));
  });
 }
@@ -696,10 +705,6 @@ function renderContestants() {
  const officialByRound = getOfficialRankingByRound();
  const currentRanks = officialByRound[state.latestRound] || {};
  const perfScores = getPerformanceScoreByRound()[state.latestRound] || {};
- const judgesData = JUDGE_NAMES.map(j => getJudgeRankingByRound(j)[state.latestRound] || {});
- 
- const activeCount = getActiveCountForRound(state.latestRound);
- const pointsBase = activeCount + 1;
  
  root.innerHTML = `
  <div class="card-paper">
@@ -724,12 +729,7 @@ function renderContestants() {
    const q = document.getElementById('searchContestant').value.toLowerCase().trim();
    const f = document.getElementById('statusFilter').value;
    const list = sortedContestants().filter(c => c.name.toLowerCase().includes(q)).filter(c => {
-     let status = getStatus(state.latestRound, c.id);
-     // Traite les anciennes éliminées
-     if (!status && getFirstEliminatedRoundIndex(c.id) !== -1 && getFirstEliminatedRoundIndex(c.id) <= ROUND_ORDER.indexOf(state.latestRound)) {
-         status = 'eliminated';
-     }
-     
+     const status = getStatus(state.latestRound, c.id);
      if (f === 'all') return true;
      if (f === 'tbd') return !status;
      return status === f || (f === 'safe' && ['winner', 'second', 'third', 'fourth', 'fifth', 'sixth', 'seventh'].includes(status)); 
@@ -739,31 +739,12 @@ function renderContestants() {
      document.getElementById('contestantsGrid').innerHTML = `<p class="small">Aucune élève trouvée.</p>`;
    } else {
      document.getElementById('contestantsGrid').innerHTML = list.map((c) => {
-       let status = getStatus(state.latestRound, c.id);
-       const elimRound = getFirstEliminatedRoundIndex(c.id);
-       if (!status && elimRound !== -1 && elimRound <= ROUND_ORDER.indexOf(state.latestRound)) {
-           status = 'eliminated';
-       }
-
+       const status = getStatus(state.latestRound, c.id);
        const rank = currentRanks[c.id];
-       let totalPoints = 0;
-       let hasData = false;
-       
-       if (Number.isFinite(perfScores[c.id])) {
-           totalPoints += perfScores[c.id];
-           hasData = true;
-       }
-       
-       judgesData.forEach(jData => {
-           const judgeRank = jData[c.id];
-           if (Number.isFinite(judgeRank) && judgeRank >= 1) {
-               totalPoints += Math.max(0, pointsBase - judgeRank); // Calcul avec base dynamique !
-               hasData = true;
-           }
-       });
+       const finalScore = perfScores[c.id];
        
        const rankDisplay = Number.isFinite(rank) ? `RANK #${rank}` : (status === 'eliminated' ? 'ÉLIMINÉE' : 'EN COURS');
-       const scoreDisplay = hasData ? totalPoints.toFixed(1).replace(/\.0$/, '') : '—';
+       const scoreDisplay = Number.isFinite(finalScore) ? finalScore.toFixed(1).replace(/\.0$/, '') : '—';
        
        let eliteClass = '';
        if (rank === 1 && status !== 'eliminated') eliteClass = 'top1-card';
@@ -850,14 +831,14 @@ function renderRankings() {
  ${list.map((c, idx) => `<tr><td>${idx + 1}</td><td><a href="#profile/${c.id}">${getContestantName(c.id)}</a></td>${ROUND_ORDER.map(r => { 
      const v = rankingMap[r]?.[c.id]; 
      const elimIndex = getFirstEliminatedRoundIndex(c.id);
+     const isDeadInTable = elimIndex !== -1 && elimIndex < ROUND_ORDER.indexOf(r);
      
      if (Number.isFinite(v)) return `<td>${isPerformance ? v.toFixed(1).replace(/\.0$/, '') : v}</td>`; 
      
      let st = getStatus(r, c.id);
-     if (!st && elimIndex !== -1 && elimIndex <= ROUND_ORDER.indexOf(r)) st = 'eliminated';
      
-     if (st && st !== 'eliminated') return `<td><span class="pill ${statusClass(st)}" style="font-size:0.68rem; padding:0.15rem 0.5rem;">${statusLabel(st)}</span></td>`;
-     if (st === 'eliminated') return `<td><span class="pill eliminated" style="font-size:0.68rem; padding:0.15rem 0.5rem;">${statusLabel('eliminated')}</span></td>`;
+     if (st && st !== 'eliminated' && !isDeadInTable) return `<td><span class="pill ${statusClass(st)}" style="font-size:0.68rem; padding:0.15rem 0.5rem;">${statusLabel(st)}</span></td>`;
+     if (st === 'eliminated' || isDeadInTable) return `<td><span class="pill eliminated" style="font-size:0.68rem; padding:0.15rem 0.5rem;">${statusLabel('eliminated')}</span></td>`;
      return '<td>—</td>';
  }).join('')}
  </tr>`).join('')}
@@ -900,8 +881,8 @@ function renderRankings() {
    
    return { 
      label: getContestantName(c.id), 
-     // ✂️ LIGNE COUPÉE : Arrête de tracer la ligne après le round d'élimination
-     data: ROUND_ORDER.map((r, rIdx) => { 
+     // LIGNE COUPÉE : Stoppe la courbe du graphe Global après le round d'élimination !
+     data: ROUND_ORDER.map((r, rIdx) => {
          if (elimIndex !== -1 && rIdx > elimIndex) return null;
          const v = rankingMap[r]?.[c.id]; 
          return Number.isFinite(v) ? v : null; 
@@ -989,7 +970,7 @@ function renderProfile(contestantId) {
      let st = getStatus(r, c.id);
      const elimRound = getFirstEliminatedRoundIndex(c.id);
      if (!st && elimRound !== -1 && elimRound <= ROUND_ORDER.indexOf(r)) st = 'eliminated';
-     return `<tr><td><strong>${getRoundLabel(r)}</strong></td><td>${official[r]?.[c.id] ?? '—'}</td>${JUDGE_NAMES.map(j => `<td>${judgesByName[j]?.[r]?.[c.id] ?? '—'}</td>`).join('')}<td>${Number.isFinite(perfScore[r]?.[c.id]) ? perfScore[r][c.id] : '—'}</td><td><span class="pill ${statusClass(st)}">${statusLabel(st)}</span></td></tr>`;
+     return `<tr><td><strong>${getRoundLabel(r)}</strong></td><td>${official[r]?.[c.id] ?? '—'}</td>${JUDGE_NAMES.map(j => `<td>${judgesByName[j]?.[r]?.[c.id] ?? '—'}</td>`).join('')}<td>${Number.isFinite(perfScore[r]?.[c.id]) ? perfScore[r][c.id].toFixed(1).replace(/\.0$/, '') : '—'}</td><td><span class="pill ${statusClass(st)}">${statusLabel(st)}</span></td></tr>`;
  }).join('')}
  </tbody>
  </table>
@@ -1034,6 +1015,7 @@ function renderProfile(contestantId) {
  labels: ROUND_ORDER.map(r => getRoundLabel(r)),
  datasets: [{ 
    label: getContestantName(c.id), 
+   // LIGNE COUPÉE : Arrête de tracer la ligne sur le profil individuel après l'élimination !
    data: ROUND_ORDER.map((r, rIdx) => {
        if (elimIndex !== -1 && rIdx > elimIndex) return null;
        const v = official[r]?.[c.id]; 
