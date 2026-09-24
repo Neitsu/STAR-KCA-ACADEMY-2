@@ -220,24 +220,6 @@
 </head>
 <body>
 
-<script>
-// ==========================================
-// 🛡️ SYSTÈME DE DÉTECTION D'ERREUR VISIBLE
-// ==========================================
-window.onerror = function(msg, url, line) {
-  const errDiv = document.createElement('div');
-  errDiv.style = "background:#ff4444; color:white; padding:15px; font-weight:bold; position:fixed; top:0; left:0; width:100%; z-index:9999; text-align:center;";
-  errDiv.innerHTML = `⚠️ CRASH TECHNIQUE : ${msg} (Ligne ${line}). Prends un screen de ce bandeau !`;
-  document.body.appendChild(errDiv);
-};
-window.onunhandledrejection = function(event) {
-  const errDiv = document.createElement('div');
-  errDiv.style = "background:#ff4444; color:white; padding:15px; font-weight:bold; position:fixed; top:0; left:0; width:100%; z-index:9999; text-align:center;";
-  errDiv.innerHTML = `⚠️ ERREUR RESEAU/GOOGLE : Impossible de charger l'Excel (${event.reason}).`;
-  document.body.appendChild(errDiv);
-};
-</script>
-
 <header>
   <div class="container topbar">
     <div class="brand">
@@ -277,7 +259,7 @@ const I18N = {
     nominations: "Tableau d'affichage des statuts", nominee_lbl: "Zone Rouge", saved_judges_lbl: "Sauvée (Jury)", saved_public_lbl: "Sauvée (Public)", eliminated_lbl: "Éliminée",
     global_chart: "Graphique d'évolution", perf_score: "Score Adaptatif", official_rank: "Classement Officiel",
     back_contestants: "← Retour", contestant_not_found: "Dossier introuvable.", rounds_overview: "Bulletin de notes", round: "Round", official: "Officiel", status: "Statut",
-    performances: "Performances Vocales", song: "Chanson", links: "Liens", link_perf: "Visionner", no_links: "Aucun enregistrement.",
+    performances: "Performances", song: "Chanson", links: "Liens", link_perf: "Visionner", no_links: "Aucun enregistrement.",
     indiv_chart: "Courbe de progression", country: "Pays", pronouns: "Pronoms", instagram: "Instagram",
     votes: "Votes", vote_now: "Soutenir une élève", no_vote_data: "Aucun vote pour ce round.", avail_vote_rounds: "Rounds disponibles :", total_votes: "Total des bulletins :", last_refresh: "Dernière MAJ :",
     r_prerank: "Éval. Initiale", r_r1: "Round 1", r_r2: "Round 2", r_r3: "Round 3", r_r4: "Round 4", r_r5: "Demi-Finale", r_final: "Finale",
@@ -462,7 +444,7 @@ function parseNum(val) {
 }
 
 // ==========================================
-// 4. ALGORITHMES INTELLIGENTS DE SURVIVAL SVS
+// 4. ALGORITHMES SVS INTELLIGENTS
 // ==========================================
 
 function getStatus(roundId, contestantId) { return state.data.round_status.find(r => r.round_id === roundId && r.contestant_id === contestantId)?.status || ''; }
@@ -493,7 +475,7 @@ function getPerformanceScoreByRound() {
     
     ROUND_ORDER.forEach(round => {
         const activeCount = getActiveCountForRound(round);
-        const pointsBase = activeCount + 1; // Si 34 filles actives -> 35. Le 1er prend 35 - 1 = 34 pts !
+        const pointsBase = activeCount + 1; // Si 32 filles actives -> 33. Le 1er prend 33 - 1 = 32 pts !
         
         state.data.contestants.forEach(c => {
             let totalPoints = 0;
@@ -521,16 +503,16 @@ function getPerformanceScoreByRound() {
     return out;
 }
 
-// 🎢 LE "GLISSEMENT" HISTORIQUE (Réattribue la place en bas de tableau)
+// 🎢 LE "GLISSEMENT" HISTORIQUE INFAILLIBLE
 function getOfficialRankingByRound() {
     const out = Object.fromEntries(ROUND_ORDER.map(r => [r, {}]));
     
-    // 1. Enregistre les rangs fixes (ex: les premières éliminées au R1)
+    // 1. Enregistre les rangs fixes (ex: les premières éliminées au R1 rentrées manuellement)
     state.data.judge_rankings.filter(r => normalizeJudgeName(r.judge_name) === 'official').forEach(r => { 
         if (Number.isFinite(r.rank)) out[r.round_id][r.contestant_id] = r.rank; 
     });
 
-    // 2. Calcule automatiquement le rang des filles "actives" selon les points
+    // 2. Calcule automatiquement le rang des filles selon les points
     const perfScoresByRound = getPerformanceScoreByRound();
     ROUND_ORDER.forEach(round => {
         const perfScores = perfScoresByRound[round];
@@ -547,34 +529,45 @@ function getOfficialRankingByRound() {
         });
     });
 
-    // 3. Le GLISSEMENT : Reprend toutes les anciennes éliminées et les décale vers le bas
-    ROUND_ORDER.forEach((round, k) => {
-        // Sélectionne les filles éliminées AVANT ce round
-        const alreadyDead = state.data.contestants.filter(c => {
-            const elimIdx = getFirstEliminatedRoundIndex(c.id);
-            return elimIdx !== -1 && elimIdx < k; 
+    // 3. LE GLISSEMENT : Reprend les éliminées et les décale vers le fond du tableau automatiquement
+    let availableBottomRank = state.data.contestants.length; // 40
+    const finalHistoricalRanks = {};
+
+    ROUND_ORDER.forEach(round => {
+        // Sélectionne les filles mortes EXACTEMENT à ce round
+        const newlyEliminated = state.data.contestants.filter(c => {
+            return getFirstEliminatedRoundIndex(c.id) === ROUND_ORDER.indexOf(round);
         });
 
-        if (alreadyDead.length > 0) {
-            // Trie les mortes d'abord par le round de leur mort, puis par leur rang lors de ce round
-            alreadyDead.sort((a, b) => {
-                const elimIdxA = getFirstEliminatedRoundIndex(a.id);
-                const elimIdxB = getFirstEliminatedRoundIndex(b.id);
-                if (elimIdxA !== elimIdxB) return elimIdxA - elimIdxB;
-
-                const rankA = out[ROUND_ORDER[elimIdxA]][a.id] || 999;
-                const rankB = out[ROUND_ORDER[elimIdxB]][b.id] || 999;
+        if (newlyEliminated.length > 0) {
+            // Trie par leur rang "brut" lors de ce round d'élimination
+            newlyEliminated.sort((a, b) => {
+                const rankA = out[round][a.id] || 999;
+                const rankB = out[round][b.id] || 999;
                 return rankA - rankB;
             });
 
-            // Combien de filles sont VIVANTES dans ce round (ou éliminées PENDANT ce round)
-            const activeCount = state.data.contestants.length - alreadyDead.length;
-
-            // Assigne aux mortes les places du fond du classement ! (Ex: Si 32 actives, les 8 mortes prennent de 33 à 40)
-            alreadyDead.forEach((deadC, idx) => {
-                out[round][deadC.id] = activeCount + 1 + idx;
+            // Assigne les places du bas (Ex: si 8 mortes au R1, elles prennent de 33 à 40)
+            const startRank = availableBottomRank - newlyEliminated.length + 1;
+            newlyEliminated.forEach((c, idx) => {
+                finalHistoricalRanks[c.id] = startRank + idx;
             });
+            
+            availableBottomRank -= newlyEliminated.length; // Réduit la place pour les prochaines mortes
         }
+    });
+
+    // 4. PROPAGATION : Remplace le rang par le rang glissé définitif pour tout le reste du concours
+    ROUND_ORDER.forEach((round, rIdx) => {
+        state.data.contestants.forEach(c => {
+            const elimIdx = getFirstEliminatedRoundIndex(c.id);
+            if (elimIdx !== -1 && finalHistoricalRanks[c.id]) {
+                if (rIdx > elimIdx) {
+                    // Pour les rounds APRES sa mort, elle glisse à sa place finale (Ex: 33)
+                    out[round][c.id] = finalHistoricalRanks[c.id];
+                }
+            }
+        });
     });
     
     return out;
@@ -639,6 +632,22 @@ async function loadDataFromRoundTabs() {
        if (Number.isFinite(val)) judge_rankings.push({ round_id, judge_name: jn, contestant_id: id, rank: val });
      });
    });
+ });
+
+ // Propage le statut d'élimination de la candidate pour tous les rounds à venir.
+ const allIds = [...contestantsMap.keys()];
+ let lastStatusObj = {};
+ ROUND_ORDER.forEach(round => {
+     allIds.forEach(id => {
+         const existingIndex = round_status_clean.findIndex(r => r.round_id === round && r.contestant_id === id);
+         if (existingIndex >= 0) {
+             lastStatusObj[id] = round_status_clean[existingIndex].status;
+         } else {
+             if (lastStatusObj[id] === 'eliminated') {
+                 round_status_clean.push({ round_id: round, contestant_id: id, status: 'eliminated' });
+             }
+         }
+     });
  });
 
  return { contestants: [...contestantsMap.values()], rounds: [], submissions, scores, judge_rankings, round_status: round_status_clean, votes_live: [] };
@@ -711,6 +720,7 @@ function getLatestRound() {
    const hasScores = state.data.scores.some(r => r.round_id === round && Number.isFinite(r.total));
    const hasOfficialRanks = state.data.judge_rankings.some(r => r.round_id === round && normalizeJudgeName(r.judge_name) === 'official');
    const hasJudgeRanks = state.data.judge_rankings.some(r => r.round_id === round && Number.isFinite(r.rank));
+   // On ignore les "eliminated" propagées pour ne pas activer un round vide
    const hasAnyStatus = state.data.round_status.some(r => r.round_id === round && r.status !== '' && r.status !== 'eliminated');
    const hasPerfs = state.data.submissions.some(r => r.round_id === round && (r.song_title || r.youtube_url));
    
@@ -731,7 +741,7 @@ function sortedContestants() {
    const bElim = getStatus(state.latestRound, b.id) === 'eliminated' ? 1 : 0;
    if (aElim !== bElim) return aElim - bElim;
 
-   // Si elles ont le même statut, on trie par leur Rang Officiel (qui existe pour tout le monde grâce au Glissement)
+   // Si elles ont le même statut, on trie par leur Rang (Le glissement s'occupe de bien ordonner les mortes !)
    const ar = current[a.id];
    const br = current[b.id];
    if (Number.isFinite(ar) && Number.isFinite(br)) return ar - br;
@@ -868,14 +878,13 @@ function renderRankings() {
          const elimIndex = getFirstEliminatedRoundIndex(c.id);
          const isDeadInTable = elimIndex !== -1 && elimIndex < ROUND_ORDER.indexOf(r);
          
-         let displayStr = '—';
          if (Number.isFinite(v)) {
-             displayStr = (isPerformance && v % 1 !== 0) ? v.toFixed(1) : v;
+             const displayV = (isPerformance && v % 1 !== 0) ? v.toFixed(1) : v;
              // Ajoute un badge "ÉLIMINÉE" discret à côté du rang glissé
              if (!isPerformance && isDeadInTable) {
-                 return '<td><span style="color:var(--muted);">' + displayStr + '</span> <span class="pill eliminated" style="font-size:0.55rem; padding:0.1rem 0.3rem; margin-left:4px;">ÉLIMINÉE</span></td>';
+                 return '<td><span style="color:var(--muted); font-weight:600;">' + displayV + '</span> <span class="pill eliminated" style="font-size:0.55rem; padding:0.15rem 0.4rem; margin-left:6px; font-weight:bold;">ÉLIMINÉE</span></td>';
              }
-             return '<td>' + displayStr + '</td>';
+             return '<td>' + displayV + '</td>';
          }
          
          let st = getStatus(r, c.id);
@@ -1076,7 +1085,7 @@ function renderProfile(contestantId) {
  labels: ROUND_ORDER.map(r => getRoundLabel(r)),
  datasets: [{ 
    label: getContestantName(c.id), 
-   // LIGNE COUPÉE SUR LE GRAPH INDIVIDUEL
+   // LIGNE COUPÉE : Arrête de tracer la ligne sur le profil individuel après l'élimination !
    data: ROUND_ORDER.map((r, rIdx) => {
        if (elimIndex !== -1 && rIdx > elimIndex) return null;
        const v = official[r]?.[c.id]; 
